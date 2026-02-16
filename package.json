@@ -1,6 +1,6 @@
 {
 	"name": "agent-replay",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "DevTools for replaying AI agent sessions — browse, inspect, and debug Claude Code and Cursor sessions with a timeline-based UI",
 	"type": "module",
 	"bin": {

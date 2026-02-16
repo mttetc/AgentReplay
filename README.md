@@ -36,7 +36,7 @@ npm install -g agent-replay
 agent-replay
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
+Your browser opens automatically. Use `--no-open` to disable this.
 
 ## Development
 
