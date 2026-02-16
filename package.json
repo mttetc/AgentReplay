@@ -1,0 +1,71 @@
+{
+	"name": "agent-replay",
+	"version": "0.1.0",
+	"description": "DevTools for replaying AI agent sessions — browse, inspect, and debug Claude Code and Cursor sessions with a timeline-based UI",
+	"type": "module",
+	"bin": {
+		"agent-replay": "bin/agent-replay.js"
+	},
+	"files": [
+		"build/",
+		"bin/",
+		"static/",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"start": "node build/index.js",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"replay",
+		"devtools",
+		"claude",
+		"claude-code",
+		"cursor",
+		"debugger",
+		"session",
+		"timeline"
+	],
+	"author": "mttetc",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mttetc/agent-replay.git"
+	},
+	"homepage": "https://github.com/mttetc/agent-replay#readme",
+	"bugs": {
+		"url": "https://github.com/mttetc/agent-replay/issues"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-node": "^5",
+		"@sveltejs/eslint-config": "^8.3.5",
+		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/vite": "^4",
+		"@types/better-sqlite3": "^7.6.13",
+		"@types/diff": "^7.0.2",
+		"eslint": "^9.39.2",
+		"eslint-plugin-svelte": "^3.15.0",
+		"prettier": "^3.8.1",
+		"prettier-plugin-svelte": "^3.4.1",
+		"svelte": "^5.49.2",
+		"svelte-check": "^4.3.6",
+		"tailwindcss": "^4",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"better-sqlite3": "^12.6.2",
+		"diff": "^7"
+	}
+}

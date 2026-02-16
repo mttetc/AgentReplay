@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-surface-950: #020617;
+	--color-surface-900: #0f172a;
+	--color-surface-800: #1e293b;
+	--color-surface-700: #334155;
+	--color-surface-600: #475569;
+	--color-surface-500: #64748b;
+	--color-surface-400: #94a3b8;
+	--color-surface-300: #cbd5e1;
+	--color-surface-200: #e2e8f0;
+	--color-surface-100: #f1f5f9;
+}
+
+html {
+	color-scheme: dark;
+}
+
+body {
+	background-color: var(--color-surface-950);
+	color: var(--color-surface-200);
+	font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--color-surface-900);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-surface-700);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-surface-600);
+}
+
+/* Pulse animation for selected timeline dots */
+@keyframes pulse-ring {
+	0% {
+		box-shadow: 0 0 0 0 currentColor;
+		opacity: 0.6;
+	}
+	100% {
+		box-shadow: 0 0 0 6px currentColor;
+		opacity: 0;
+	}
+}
