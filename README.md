@@ -2,7 +2,7 @@
 
 DevTools for replaying AI agent sessions. Browse, inspect, and debug your Claude Code and Cursor sessions with a timeline-based UI.
 
-<!-- ![Agent Replay Screenshot](screenshot.png) -->
+![Agent Replay — session player with diff view](static/screenshot.png)
 
 ## What is this?
 
