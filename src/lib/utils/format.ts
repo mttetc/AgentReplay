@@ -81,3 +81,42 @@ export function truncate(text: string, maxLength: number): string {
 	if (text.length <= maxLength) return text;
 	return text.slice(0, maxLength - 1) + '…';
 }
+
+/** Infer language from a file path extension */
+export function inferLanguage(filePath: string): string {
+	const ext = filePath.split('.').pop()?.toLowerCase() || '';
+	const map: Record<string, string> = {
+		ts: 'typescript',
+		tsx: 'tsx',
+		js: 'javascript',
+		jsx: 'jsx',
+		json: 'json',
+		md: 'markdown',
+		py: 'python',
+		rs: 'rust',
+		go: 'go',
+		sh: 'bash',
+		bash: 'bash',
+		zsh: 'bash',
+		css: 'css',
+		scss: 'scss',
+		html: 'html',
+		svelte: 'svelte',
+		vue: 'vue',
+		yaml: 'yaml',
+		yml: 'yaml',
+		toml: 'toml',
+		sql: 'sql',
+		graphql: 'graphql',
+		dockerfile: 'dockerfile',
+		rb: 'ruby',
+		java: 'java',
+		kt: 'kotlin',
+		swift: 'swift',
+		c: 'c',
+		cpp: 'cpp',
+		h: 'c',
+		hpp: 'cpp'
+	};
+	return map[ext] || 'text';
+}

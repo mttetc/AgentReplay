@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { TimelineEvent } from '$lib/types/timeline';
+	import { inferLanguage } from '$lib/utils/format';
 	import DiffView from './DiffView.svelte';
 	import BashOutput from './BashOutput.svelte';
 	import CodeBlock from './CodeBlock.svelte';
+	import FilePath from './FilePath.svelte';
 
 	let { event }: { event: TimelineEvent | null } = $props();
 </script>
@@ -15,35 +17,27 @@
 	<div class="h-full overflow-y-auto p-4 space-y-4">
 		{#if event.data.eventType === 'user_message'}
 			<div>
-				<h3 class="text-xs font-medium text-sky-400 mb-3 uppercase tracking-wider">User Message</h3>
 				<div class="text-surface-200 text-sm whitespace-pre-wrap leading-relaxed">{event.data.text}</div>
 			</div>
 
 		{:else if event.data.eventType === 'assistant_text'}
 			<div>
-				<h3 class="text-xs font-medium text-surface-400 mb-3 uppercase tracking-wider">Claude</h3>
 				<div class="text-surface-200 text-sm whitespace-pre-wrap leading-relaxed">{event.data.text}</div>
 			</div>
 
 		{:else if event.data.eventType === 'thinking'}
 			<div>
-				<h3 class="text-xs font-medium text-yellow-400 mb-3 uppercase tracking-wider">Thinking</h3>
 				<div class="text-surface-400 text-sm whitespace-pre-wrap leading-relaxed italic">{event.data.thinking}</div>
 			</div>
 
 		{:else if event.data.eventType === 'tool_call'}
 			{@const tc = event.data}
 			<div>
-				<h3 class="text-xs font-medium text-surface-400 mb-3 uppercase tracking-wider">
-					{tc.toolName}
-					{#if tc.result?.isError}
-						<span class="text-red-400 ml-2">Error</span>
-					{/if}
-				</h3>
 
 				{#if tc.toolName === 'Edit'}
+					{@const filePath = String(tc.input.file_path || '')}
+					<FilePath path={filePath} />
 					<DiffView
-						filePath={String(tc.input.file_path || '')}
 						oldString={String(tc.input.old_string || '')}
 						newString={String(tc.input.new_string || '')}
 					/>
@@ -57,26 +51,21 @@
 					/>
 
 				{:else if tc.toolName === 'Read'}
-					<div class="mb-2">
-						<span class="text-blue-400 text-xs">{tc.input.file_path}</span>
-						{#if tc.input.offset}
-							<span class="text-surface-500 text-xs ml-2">from line {tc.input.offset}</span>
-						{/if}
-					</div>
+					{@const filePath = String(tc.input.file_path || '')}
+					<FilePath path={filePath} extra={tc.input.offset ? `from line ${tc.input.offset}` : ''} />
 					{#if tc.result?.isError}
 						<div class="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2">
 							<p class="text-red-400 text-xs font-medium mb-1">Tool returned an error during this session</p>
 							<pre class="text-red-300/80 text-xs whitespace-pre-wrap">{tc.result.content}</pre>
 						</div>
 					{:else}
-						<CodeBlock content={tc.result?.content || 'No content'} />
+						<CodeBlock content={tc.result?.content || 'No content'} language={inferLanguage(filePath)} filePath={filePath} />
 					{/if}
 
 				{:else if tc.toolName === 'Write'}
-					<div class="mb-2">
-						<span class="text-amber-400 text-xs">{tc.input.file_path}</span>
-					</div>
-					<CodeBlock content={String(tc.input.content || '')} />
+					{@const filePath = String(tc.input.file_path || '')}
+					<FilePath path={filePath} />
+					<CodeBlock content={String(tc.input.content || '')} language={inferLanguage(filePath)} filePath={filePath} />
 
 				{:else if tc.toolName === 'Glob'}
 					<div class="mb-2">

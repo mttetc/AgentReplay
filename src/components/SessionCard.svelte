@@ -12,7 +12,7 @@
 	};
 
 	function getModelBadge(model: string): string {
-		if (model.includes('opus')) return 'bg-purple-500/15 text-purple-300 border border-purple-500/30';
+		if (model.includes('opus')) return 'bg-amber-500/15 text-amber-300 border border-amber-500/30';
 		if (model.includes('sonnet')) return 'bg-blue-500/15 text-blue-300 border border-blue-500/30';
 		if (model.includes('haiku')) return 'bg-green-500/15 text-green-300 border border-green-500/30';
 		return 'bg-surface-800 text-surface-400 border border-surface-700';
@@ -35,7 +35,7 @@
 
 <a
 	href={buildHref(session)}
-	class="block bg-surface-900 border border-surface-800 rounded-lg p-4 hover:border-surface-600 hover:bg-surface-800/80 transition-all group"
+	class="block bg-surface-950 border border-surface-800 rounded-lg p-4 hover:border-surface-600 hover:bg-surface-900/80 transition-all group"
 	style="container-type: inline-size;"
 >
 	<div class="flex items-start justify-between gap-3 mb-3">

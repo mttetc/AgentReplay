@@ -163,7 +163,7 @@
 		{/if}
 	</div>
 
-	<div class="grid gap-3">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
 		{#each visibleSessions as session (session.sessionId)}
 			<SessionCard {session} />
 		{/each}

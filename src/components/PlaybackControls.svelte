@@ -39,7 +39,7 @@
 	<button
 		onclick={onprev}
 		disabled={currentIndex <= 0}
-		class="text-surface-400 hover:text-surface-200 disabled:text-surface-700 disabled:cursor-not-allowed transition-colors p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+		class="key-btn disabled:opacity-30 disabled:cursor-not-allowed"
 		title="Previous (Left Arrow)"
 	>
 		&#9664;
@@ -48,7 +48,7 @@
 	<!-- Play/Pause -->
 	<button
 		onclick={ontoggleplay}
-		class="text-surface-200 hover:text-white transition-colors p-1 text-lg min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+		class="key-btn key-wide"
 		title="Play/Pause (Space)"
 	>
 		{#if isPlaying}&#10074;&#10074;{:else}&#9654;{/if}
@@ -58,7 +58,7 @@
 	<button
 		onclick={onnext}
 		disabled={currentIndex >= totalEvents - 1}
-		class="text-surface-400 hover:text-surface-200 disabled:text-surface-700 disabled:cursor-not-allowed transition-colors p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+		class="key-btn disabled:opacity-30 disabled:cursor-not-allowed"
 		title="Next (Right Arrow)"
 	>
 		&#9654;
@@ -81,18 +81,17 @@
 	</button>
 
 	<!-- Counter -->
-	<span class="counter text-surface-500 text-xs tabular-nums min-w-[4rem] text-right">
+	<span class="counter text-surface-500 text-xs tabular-nums min-w-[4rem] text-right" style="font-family: 'JetBrains Mono', monospace;">
 		<span class="counter-full">{currentIndex + 1} / {totalEvents}</span>
 		<span class="counter-short hidden">{currentIndex + 1}/{totalEvents}</span>
 	</span>
 
-	<!-- Speed: buttons on desktop, select on mobile -->
+	<!-- Speed: keyboard-style buttons -->
 	<div class="speed-buttons flex items-center gap-1">
 		{#each speeds as s}
 			<button
 				onclick={() => onspeedchange(s)}
-				class="text-xs px-1.5 py-0.5 rounded transition-colors
-					{speed === s ? 'bg-surface-700 text-surface-200' : 'text-surface-500 hover:text-surface-300'}"
+				class="key-btn key-sm {speed === s ? 'key-active' : ''}"
 			>
 				{s}x
 			</button>
@@ -112,6 +111,46 @@
 </div>
 
 <style>
+	.key-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 32px;
+		height: 28px;
+		padding: 0 8px;
+		background: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
+		border-bottom-width: 2px;
+		border-radius: 5px;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 11px;
+		color: var(--color-surface-300);
+		cursor: pointer;
+		transition: all 0.1s;
+	}
+	.key-btn:hover {
+		border-color: var(--color-surface-600);
+		color: var(--color-surface-100);
+	}
+	.key-btn:active {
+		border-bottom-width: 1px;
+		transform: translateY(1px);
+	}
+	.key-wide {
+		min-width: 48px;
+	}
+	.key-sm {
+		min-width: 28px;
+		height: 24px;
+		font-size: 10px;
+		padding: 0 6px;
+	}
+	.key-active {
+		background: var(--color-surface-800);
+		border-color: var(--color-surface-500);
+		color: var(--color-surface-100);
+	}
+
 	@media (max-width: 639px) {
 		.speed-buttons {
 			display: none;

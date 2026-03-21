@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { createPatch } from 'diff';
 
-	let { filePath, oldString, newString }: {
-		filePath: string;
+	let { oldString, newString }: {
 		oldString: string;
 		newString: string;
 	} = $props();
 
-	let patch = $derived(createPatch(filePath, oldString, newString, '', '', { context: 3 }));
+	let patch = $derived(createPatch('file', oldString, newString, '', '', { context: 3 }));
+	let copied = $state(false);
 
 	interface DiffLine {
 		type: 'add' | 'remove' | 'context' | 'header';
@@ -29,14 +29,26 @@
 		}
 		return result;
 	});
+
+	async function copyDiff() {
+		await navigator.clipboard.writeText(patch);
+		copied = true;
+		setTimeout(() => (copied = false), 1500);
+	}
 </script>
 
 <div class="rounded-md border border-surface-800 overflow-hidden">
-	<div class="bg-surface-900 px-3 py-1.5 border-b border-surface-800 flex items-center gap-2">
-		<span class="text-amber-400 text-xs">{filePath}</span>
+	<div class="flex items-center justify-between px-3 py-1.5 bg-surface-800/50 border-b border-surface-800">
+		<span class="text-purple-400 text-xs font-mono">{lines[0]?.content || 'diff'}</span>
+		<button
+			onclick={copyDiff}
+			class="text-[10px] text-surface-500 hover:text-surface-300 transition-colors px-1.5 py-0.5 rounded border border-surface-700 hover:border-surface-600"
+		>
+			{copied ? '✓ copied' : 'copy'}
+		</button>
 	</div>
 	<div class="overflow-x-auto text-xs font-mono">
-		{#each lines as line, i}
+		{#each lines.slice(1) as line}
 			<div
 				class="px-3 py-0.5 whitespace-pre
 					{line.type === 'add' ? 'bg-green-500/10 text-green-300' : ''}
