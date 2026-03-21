@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { SessionSummary } from '$lib/types/timeline';
-	import { formatDurationBetween, formatNumber, formatCostWithPlan, shortModel } from '$lib/utils/format';
-	import { isIncludedPlan, getPlan, PLAN_LABELS } from '$lib/stores/plan.svelte';
+	import { formatDurationBetween, formatNumber, formatCost, shortModel } from '$lib/utils/format';
 
 	let { summary }: { summary: SessionSummary } = $props();
 
@@ -48,15 +47,11 @@
 		</div>
 		<span class="stats-sep text-surface-800">|</span>
 		<!-- Cost with mini bar -->
-		<div
-			class="flex items-center gap-2"
-			title={isIncludedPlan() ? `Estimated API cost — included in your ${PLAN_LABELS[getPlan()]} subscription` : 'Estimated API cost'}
-		>
+		<div class="flex items-center gap-2" title="Estimated API cost">
 			<div class="w-16 h-1 bg-surface-800 rounded-full overflow-hidden">
 				<div class="h-full rounded-full {getModelBarColor(summary.model)}" style="width: {costBarWidth}%"></div>
 			</div>
-			<span class="{isIncludedPlan() ? 'text-surface-500' : 'text-surface-200 font-medium'}">{formatCostWithPlan(summary.estimatedCost, isIncludedPlan())}</span>
-			{#if isIncludedPlan()}<span class="text-[10px] text-surface-600">included</span>{/if}
+			<span class="text-surface-200 font-medium">{formatCost(summary.estimatedCost)}</span>
 		</div>
 	</div>
 </div>

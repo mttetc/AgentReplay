@@ -36,11 +36,20 @@ interface AssistantTurn {
  * 3. Match tool_result entries to their tool_use counterparts
  * 4. Build chronological timeline events
  */
+/** Cache parsed sessions for 30s */
+const sessionCache = new Map<string, { data: SessionTimeline; timestamp: number }>();
+const SESSION_CACHE_TTL = 30_000;
+
 export async function parseSession(
 	filePath: string,
 	sessionId: string,
 	project: string
 ): Promise<SessionTimeline> {
+	const cached = sessionCache.get(sessionId);
+	if (cached && (Date.now() - cached.timestamp) < SESSION_CACHE_TTL) {
+		return cached.data;
+	}
+
 	const content = await readFile(filePath, 'utf-8');
 	const lines = content.split('\n').filter((l) => l.trim());
 
@@ -195,6 +204,9 @@ export async function parseSession(
 			totalInputTokens += turn.inputTokens;
 			totalOutputTokens += turn.outputTokens;
 			lastActiveAt = turn.timestamp;
+			const turnTokens = (turn.inputTokens > 0 || turn.outputTokens > 0)
+				? { input: turn.inputTokens, output: turn.outputTokens }
+				: undefined;
 
 			for (const block of turn.blocks) {
 				if (block.type === 'thinking') {
@@ -203,7 +215,7 @@ export async function parseSession(
 						events.push(makeEvent(eventIndex++, turn.timestamp, {
 							eventType: 'thinking',
 							thinking: thinkBlock.thinking
-						}));
+						}, turnTokens));
 					}
 				} else if (block.type === 'text') {
 					const textBlock = block as RawContentBlockText;
@@ -211,7 +223,7 @@ export async function parseSession(
 						events.push(makeEvent(eventIndex++, turn.timestamp, {
 							eventType: 'assistant_text',
 							text: textBlock.text
-						}));
+						}, turnTokens));
 					}
 				} else if (block.type === 'tool_use') {
 					const toolBlock = block as RawContentBlockToolUse;
@@ -222,7 +234,7 @@ export async function parseSession(
 						toolUseId: toolBlock.id,
 						input: toolBlock.input,
 						result
-					}));
+					}, turnTokens));
 				}
 			}
 		} else if (ordered.kind === 'system') {
@@ -258,14 +270,24 @@ export async function parseSession(
 		provider: 'claude-code'
 	};
 
-	return { summary, events };
+	const result = { summary, events };
+	sessionCache.set(sessionId, { data: result, timestamp: Date.now() });
+
+	// Evict old entries to prevent memory leak
+	if (sessionCache.size > 50) {
+		const oldest = [...sessionCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+		if (oldest) sessionCache.delete(oldest[0]);
+	}
+
+	return result;
 }
 
-function makeEvent(index: number, timestamp: string, data: TimelineEventData): TimelineEvent {
+function makeEvent(index: number, timestamp: string, data: TimelineEventData, tokens?: { input: number; output: number }): TimelineEvent {
 	return {
 		id: `evt-${index}`,
 		index,
 		timestamp,
-		data
+		data,
+		...(tokens && { tokens })
 	};
 }

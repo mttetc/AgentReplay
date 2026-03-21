@@ -9,11 +9,13 @@
 		events,
 		selectedIndex = 0,
 		highlightedIndices,
+		annotatedEventIds,
 		onselect
 	}: {
 		events: TimelineEvent[];
 		selectedIndex?: number;
 		highlightedIndices?: Set<number>;
+		annotatedEventIds?: Set<string>;
 		onselect: (index: number) => void;
 	} = $props();
 
@@ -28,6 +30,18 @@
 	);
 	let visibleEvents = $derived(events.slice(startIdx, endIdx));
 	let offsetY = $derived(startIdx * ITEM_HEIGHT);
+
+	// Max tokens across all events for heatmap normalization
+	let maxTokens = $derived.by(() => {
+		let max = 1;
+		for (const ev of events) {
+			if (ev.tokens) {
+				const total = ev.tokens.input + ev.tokens.output;
+				if (total > max) max = total;
+			}
+		}
+		return max;
+	});
 
 	function handleScroll() {
 		if (!containerEl) return;
@@ -79,6 +93,8 @@
 							{event}
 							selected={realIndex === selectedIndex}
 							highlighted={highlightedIndices?.has(realIndex) ?? false}
+							hasAnnotation={annotatedEventIds?.has(event.id) ?? false}
+							{maxTokens}
 							onclick={() => onselect(realIndex)}
 						/>
 					</div>

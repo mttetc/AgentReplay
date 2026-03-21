@@ -21,6 +21,8 @@ export async function discoverSessions(): Promise<SessionSummary[]> {
 		return [];
 	}
 
+	const allPromises: Promise<SessionSummary | null>[] = [];
+
 	for (const projectDir of projectDirs) {
 		const projectPath = join(CLAUDE_DIR, projectDir);
 		const projectStat = await stat(projectPath).catch(() => null);
@@ -39,13 +41,15 @@ export async function discoverSessions(): Promise<SessionSummary[]> {
 			const filePath = join(projectPath, file);
 			const sessionId = basename(file, '.jsonl');
 
-			try {
-				const summary = await buildSummary(filePath, sessionId, projectDir);
-				if (summary) sessions.push(summary);
-			} catch {
-				// Skip malformed sessions
-			}
+			allPromises.push(
+				buildSummary(filePath, sessionId, projectDir).catch(() => null)
+			);
 		}
+	}
+
+	const results = await Promise.all(allPromises);
+	for (const result of results) {
+		if (result) sessions.push(result);
 	}
 
 	// Sort by most recent first

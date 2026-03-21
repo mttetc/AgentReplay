@@ -1,15 +1,8 @@
 <script lang="ts">
 	import type { SessionSummary } from '$lib/types/timeline';
-	import { formatDate, formatDurationBetween, formatNumber, formatCostWithPlan, shortModel } from '$lib/utils/format';
-	import { isIncludedPlan, getPlan, PLAN_LABELS } from '$lib/stores/plan.svelte';
+	import { formatDate, formatDurationBetween, formatNumber, formatCost, shortModel } from '$lib/utils/format';
 
 	let { session }: { session: SessionSummary } = $props();
-
-	const modelBadges: Record<string, string> = {
-		'claude-opus-4-6': 'bg-purple-500/15 text-purple-300 border border-purple-500/30',
-		'claude-sonnet-4-5-20250929': 'bg-blue-500/15 text-blue-300 border border-blue-500/30',
-		'claude-haiku-4-5-20251001': 'bg-green-500/15 text-green-300 border border-green-500/30'
-	};
 
 	function getModelBadge(model: string): string {
 		if (model.includes('opus')) return 'bg-amber-500/15 text-amber-300 border border-amber-500/30';
@@ -64,9 +57,9 @@
 		<span class="meta-sep text-surface-700">|</span>
 		<span>{formatNumber(session.outputTokens)} out</span>
 		<span
-			class="ml-auto {isIncludedPlan() ? 'text-surface-500' : session.estimatedCost > 0 ? 'text-emerald-400' : 'text-surface-500'}"
-			title={isIncludedPlan() ? `Estimated API cost — included in your ${PLAN_LABELS[getPlan()]} subscription` : 'Estimated API cost'}
-		>{formatCostWithPlan(session.estimatedCost, isIncludedPlan())}{#if isIncludedPlan()} <span class="text-[10px] text-surface-600">included</span>{/if}</span>
+			class="ml-auto {session.estimatedCost > 0 ? 'text-emerald-400' : 'text-surface-500'}"
+			title="Estimated API cost"
+		>{formatCost(session.estimatedCost)}</span>
 	</div>
 </a>
 

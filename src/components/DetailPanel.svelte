@@ -5,8 +5,9 @@
 	import BashOutput from './BashOutput.svelte';
 	import CodeBlock from './CodeBlock.svelte';
 	import FilePath from './FilePath.svelte';
+	import AnnotationBox from './AnnotationBox.svelte';
 
-	let { event }: { event: TimelineEvent | null } = $props();
+	let { event, sessionId = '' }: { event: TimelineEvent | null; sessionId?: string } = $props();
 </script>
 
 {#if !event}
@@ -136,6 +137,11 @@
 				<div class="text-orange-400 text-sm font-medium">Context Compacted</div>
 				<p class="text-surface-500 text-xs mt-2">The conversation was summarized to fit the context window</p>
 			</div>
+		{/if}
+
+		<!-- Annotation -->
+		{#if sessionId && event}
+			<AnnotationBox {sessionId} eventId={event.id} />
 		{/if}
 	</div>
 {/if}

@@ -6,6 +6,22 @@
 
 	let { sessions }: { sessions: SessionSummary[] } = $props();
 	let search = $state('');
+	let compareMode = $state(false);
+	let compareSelection = $state<string[]>([]);
+
+	function toggleCompare(sessionId: string) {
+		if (compareSelection.includes(sessionId)) {
+			compareSelection = compareSelection.filter(s => s !== sessionId);
+		} else if (compareSelection.length < 2) {
+			compareSelection = [...compareSelection, sessionId];
+		}
+	}
+
+	let compareUrl = $derived(
+		compareSelection.length === 2
+			? `/compare?a=${compareSelection[0]}&b=${compareSelection[1]}`
+			: ''
+	);
 	let sortBy: 'date' | 'model' | 'cost' | 'duration' | 'tokens' = $state('date');
 	let sortDir: 'asc' | 'desc' = $state('desc');
 	let providerFilter: ProviderType | 'all' = $state('all');
@@ -155,17 +171,50 @@
 		{/if}
 	</div>
 
-	<div class="text-xs text-surface-500">
-		{#if hasMore}
-			Showing {visibleCount} of {sorted.length} sessions
+	<div class="flex items-center justify-between mb-1">
+		<div class="text-xs text-surface-500">
+			{#if hasMore}
+				Showing {visibleCount} of {sorted.length} sessions
+			{:else}
+				{sorted.length} session{sorted.length !== 1 ? 's' : ''}
+			{/if}
+		</div>
+		{#if compareMode}
+			<div class="flex items-center gap-2">
+				{#if compareUrl}
+					<a href={compareUrl} class="px-3 py-1.5 text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-colors">
+						Compare ({compareSelection.length}/2)
+					</a>
+				{:else}
+					<span class="text-xs text-surface-500">Select {2 - compareSelection.length} session{compareSelection.length === 0 ? 's' : ''}</span>
+				{/if}
+				<button onclick={() => { compareMode = false; compareSelection = []; }} class="text-xs text-surface-500 hover:text-surface-300">Cancel</button>
+			</div>
 		{:else}
-			{sorted.length} session{sorted.length !== 1 ? 's' : ''}
+			<button
+				onclick={() => (compareMode = true)}
+				class="px-3 py-1.5 text-xs font-medium text-surface-300 hover:text-surface-100 bg-surface-900 border border-surface-700 hover:border-surface-500 rounded-lg transition-colors"
+			>Compare sessions</button>
 		{/if}
 	</div>
 
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
 		{#each visibleSessions as session (session.sessionId)}
-			<SessionCard {session} />
+			{#if compareMode}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					onclick={(e) => { e.preventDefault(); toggleCompare(session.sessionId); }}
+					class="cursor-pointer rounded-lg transition-all {compareSelection.includes(session.sessionId) ? 'ring-2 ring-blue-500' : 'hover:ring-1 hover:ring-surface-600'}"
+					role="button"
+					tabindex="0"
+				>
+					<div class="pointer-events-none">
+						<SessionCard {session} />
+					</div>
+				</div>
+			{:else}
+				<SessionCard {session} />
+			{/if}
 		{/each}
 
 		{#if filtered.length === 0}

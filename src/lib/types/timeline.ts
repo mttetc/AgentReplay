@@ -74,6 +74,8 @@ export interface TimelineEvent {
 	index: number;
 	timestamp: string;
 	data: TimelineEventData;
+	/** Token usage for this event's assistant turn (shared across events from same turn) */
+	tokens?: { input: number; output: number };
 }
 
 export interface SessionSummary {

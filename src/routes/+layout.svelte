@@ -1,19 +1,12 @@
 <script lang="ts">
 	import '../app.css';
-	import { getPlan, setPlan, PLAN_LABELS, type PlanType } from '$lib/stores/plan.svelte';
+	import { page } from '$app/state';
 
 	let { children } = $props();
-	let planOpen = $state(false);
 
-	const planTypes: PlanType[] = ['api', 'pro', 'max', 'enterprise'];
-
-	function selectPlan(p: PlanType) {
-		setPlan(p);
-		planOpen = false;
-	}
+	let currentPath = $derived(page.url.pathname);
+	let transitionKey = $derived(currentPath);
 </script>
-
-<svelte:window onclick={() => (planOpen = false)} />
 
 <div class="min-h-screen flex flex-col">
 	<header class="bg-[#08080a]/80 backdrop-blur-xl backdrop-saturate-[1.2] sticky top-0 z-50 border-b border-surface-800/50">
@@ -28,41 +21,14 @@
 				</span>
 			</a>
 			<span class="text-surface-600 text-xs hidden sm:inline">DevTools for AI Agents</span>
-
-			<div class="ml-auto relative">
-				<button
-					onclick={(e: MouseEvent) => { e.stopPropagation(); planOpen = !planOpen; }}
-					class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-900 text-surface-400 hover:text-surface-200 border border-surface-800 hover:border-surface-600 transition-colors"
-				>
-					{PLAN_LABELS[getPlan()]}
-				</button>
-				{#if planOpen}
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div
-						onclick={(e: MouseEvent) => e.stopPropagation()}
-						class="absolute right-0 mt-2 w-36 bg-surface-900 border border-surface-800 rounded-lg shadow-xl overflow-hidden z-50"
-					>
-						{#each planTypes as p}
-							<button
-								onclick={() => selectPlan(p)}
-								class="w-full text-left px-3 py-2 text-xs transition-colors {getPlan() === p
-									? 'bg-surface-800 text-surface-100'
-									: 'text-surface-400 hover:bg-surface-800/50 hover:text-surface-200'}"
-							>
-								{PLAN_LABELS[p]}
-								{#if p !== 'api'}
-									<span class="text-surface-600 ml-1">included</span>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
 		</nav>
 	</header>
 
 	<main class="flex-1">
-		{@render children()}
+		{#key transitionKey}
+			<div class="page-transition">
+				{@render children()}
+			</div>
+		{/key}
 	</main>
 </div>

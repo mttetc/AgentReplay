@@ -7,8 +7,14 @@
 	import DetailPanel from '../../../components/DetailPanel.svelte';
 	import PlaybackControls from '../../../components/PlaybackControls.svelte';
 	import StatsBar from '../../../components/StatsBar.svelte';
+	import FileTree from '../../../components/FileTree.svelte';
+	import { getSessionAnnotations } from '$lib/stores/annotations.svelte';
 
 	let { data } = $props();
+
+	let sessionId = $derived(data.timeline.summary.sessionId);
+	let annotatedEventIds = $derived(new Set(getSessionAnnotations(sessionId).keys()));
+	let sidebarTab: 'timeline' | 'files' = $state('timeline');
 
 	let selectedIndex = $state(0);
 	let isPlaying = $state(false);
@@ -365,6 +371,21 @@
 	<PaneGroup direction="horizontal" autoSaveId="agent-replay-session" class="h-full">
 		<Pane defaultSize={30} minSize={15} maxSize={50}>
 		<div class="flex flex-col h-full bg-surface-950">
+			<!-- Sidebar tabs -->
+			<div class="flex border-b border-surface-800">
+				<button
+					onclick={() => (sidebarTab = 'timeline')}
+					class="flex-1 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors
+						{sidebarTab === 'timeline' ? 'text-surface-200 border-b border-blue-500' : 'text-surface-500 hover:text-surface-300'}"
+				>Timeline</button>
+				<button
+					onclick={() => (sidebarTab = 'files')}
+					class="flex-1 px-3 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors
+						{sidebarTab === 'files' ? 'text-surface-200 border-b border-blue-500' : 'text-surface-500 hover:text-surface-300'}"
+				>Files</button>
+			</div>
+
+			{#if sidebarTab === 'timeline'}
 			<!-- Search & Filter bar -->
 			<div class="p-2 space-y-2 border-b border-surface-800">
 				<div class="relative">
@@ -432,9 +453,16 @@
 					events={displayEvents}
 					selectedIndex={displaySelectedIndex}
 					highlightedIndices={isFiltering && !searchQuery ? undefined : (isFiltering ? matchedIndices : undefined)}
+					{annotatedEventIds}
 					onselect={handleTimelineSelect}
 				/>
 			</div>
+			{:else}
+			<!-- File tree -->
+			<div class="flex-1 overflow-y-auto p-3">
+				<FileTree events={data.timeline.events} onjump={goTo} />
+			</div>
+			{/if}
 		</div>
 		</Pane>
 
@@ -443,7 +471,7 @@
 		<Pane defaultSize={70}>
 		<!-- Detail panel (right) -->
 		<div class="h-full overflow-hidden bg-surface-900">
-			<DetailPanel event={selectedEvent} />
+			<DetailPanel event={selectedEvent} {sessionId} />
 		</div>
 		</Pane>
 	</PaneGroup>
@@ -496,7 +524,7 @@
 					&#8592; Back to timeline
 				</button>
 				<div class="flex-1 overflow-hidden">
-					<DetailPanel event={selectedEvent} />
+					<DetailPanel event={selectedEvent} {sessionId} />
 				</div>
 			</div>
 		{/if}

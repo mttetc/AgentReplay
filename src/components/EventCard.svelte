@@ -2,12 +2,19 @@
 	import type { TimelineEvent } from '$lib/types/timeline';
 	import { truncate } from '$lib/utils/format';
 
-	let { event, selected = false, highlighted = false, onclick }: {
+	let { event, selected = false, highlighted = false, hasAnnotation = false, maxTokens = 1, onclick }: {
 		event: TimelineEvent;
 		selected?: boolean;
 		highlighted?: boolean;
+		hasAnnotation?: boolean;
+		maxTokens?: number;
 		onclick: () => void;
 	} = $props();
+
+	// Cost heatmap: intensity 0-1 based on token usage relative to max
+	let costIntensity = $derived(
+		event.tokens ? Math.min(1, (event.tokens.input + event.tokens.output) / Math.max(1, maxTokens)) : 0
+	);
 
 	const dotColors: Record<string, string> = {
 		Bash: 'bg-green-500',
@@ -125,6 +132,14 @@
 		<div class="absolute left-0 top-3 w-[8px] h-[8px] rounded-full z-[9] {getPulseColor(event)} animate-pulse-ring"></div>
 	{/if}
 
+	<!-- Cost heatmap bar -->
+	{#if costIntensity > 0}
+		<div class="absolute right-0 top-1 bottom-1 w-[3px] rounded-full opacity-60"
+			style="background: rgba(245,158,11,{costIntensity * 0.8 + 0.2});"
+			title="{event.tokens?.input ?? 0} in / {event.tokens?.output ?? 0} out"
+		></div>
+	{/if}
+
 	<!-- Card -->
 	<div class="ml-2 px-3 py-1.5 rounded-md transition-all
 		{selected ? 'bg-surface-800/80' : 'hover:bg-surface-800/40'}
@@ -133,6 +148,9 @@
 	>
 		<div class="flex items-center gap-2">
 			<span class="text-[11px] font-semibold uppercase tracking-wide {getLabelColor(event)}">{getLabel(event)}</span>
+			{#if hasAnnotation}
+				<span class="w-1.5 h-1.5 rounded-full bg-yellow-500" title="Has annotation"></span>
+			{/if}
 			{#if hasError(event)}
 				<span class="text-[10px] text-red-400 font-medium">error</span>
 			{/if}

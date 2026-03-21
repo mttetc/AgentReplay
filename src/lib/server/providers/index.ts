@@ -12,8 +12,18 @@ const providerMap = new Map<ProviderType, SessionProvider>(
 	providers.map((p) => [p.type, p])
 );
 
-/** Discover sessions from all providers in parallel */
+/** Cache for discovery results */
+let cachedSessions: SessionSummary[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60_000; // 60 seconds
+
+/** Discover sessions from all providers in parallel (cached) */
 export async function discoverAllSessions(): Promise<SessionSummary[]> {
+	const now = Date.now();
+	if (cachedSessions && (now - cacheTimestamp) < CACHE_TTL_MS) {
+		return cachedSessions;
+	}
+
 	const results = await Promise.allSettled(
 		providers.map((p) => p.discoverSessions())
 	);
@@ -26,6 +36,10 @@ export async function discoverAllSessions(): Promise<SessionSummary[]> {
 	}
 
 	sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
+
+	cachedSessions = sessions;
+	cacheTimestamp = now;
+
 	return sessions;
 }
 
