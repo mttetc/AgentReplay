@@ -7,14 +7,28 @@ import { readdir, access } from 'fs/promises';
 import { join } from 'path';
 import type { ProviderType } from '$lib/server/providers/types';
 import { findRelatedCommits } from '$lib/server/git-integration';
+import { z } from 'zod';
+
+const VALID_PROVIDERS: ProviderType[] = ['claude-code', 'cursor', 'windsurf', 'aider', 'copilot'];
+const sessionIdSchema = z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/);
+const providerSchema = z.enum(['claude-code', 'cursor', 'windsurf', 'aider', 'copilot']);
 
 function decodeProjectName(dirName: string): string {
 	return dirName.replace(/-/g, '/').replace(/^\//, '');
 }
 
 export const load: PageServerLoad = async ({ params, url }) => {
-	const { sessionId } = params;
-	const provider = (url.searchParams.get('provider') || 'claude-code') as ProviderType;
+	const sessionIdResult = sessionIdSchema.safeParse(params.sessionId);
+	if (!sessionIdResult.success) {
+		throw error(400, 'Invalid session ID');
+	}
+	const sessionId = sessionIdResult.data;
+
+	const providerResult = providerSchema.safeParse(url.searchParams.get('provider') || 'claude-code');
+	if (!providerResult.success) {
+		throw error(400, `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(', ')}`);
+	}
+	const provider = providerResult.data;
 
 	// Non-Claude-Code sessions: route through provider with metadata
 	if (provider !== 'claude-code') {

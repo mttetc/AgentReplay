@@ -4,6 +4,9 @@ import { error, redirect } from '@sveltejs/kit';
 import { CLAUDE_DIR } from '$lib/server/config';
 import { readdir, access } from 'fs/promises';
 import { join } from 'path';
+import { z } from 'zod';
+
+const sessionIdSchema = z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/);
 
 function decodeProjectName(dirName: string): string {
 	return dirName.replace(/-/g, '/').replace(/^\//, '');
@@ -32,16 +35,16 @@ async function findAndParse(sessionId: string) {
 }
 
 export const load: PageServerLoad = async ({ url }) => {
-	const a = url.searchParams.get('a');
-	const b = url.searchParams.get('b');
+	const aResult = sessionIdSchema.safeParse(url.searchParams.get('a'));
+	const bResult = sessionIdSchema.safeParse(url.searchParams.get('b'));
 
-	if (!a || !b) {
+	if (!aResult.success || !bResult.success) {
 		throw redirect(302, '/');
 	}
 
 	const [timelineA, timelineB] = await Promise.all([
-		findAndParse(a),
-		findAndParse(b)
+		findAndParse(aResult.data),
+		findAndParse(bResult.data)
 	]);
 
 	return { timelineA, timelineB };

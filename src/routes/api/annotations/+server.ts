@@ -1,66 +1,64 @@
 import { json } from '@sveltejs/kit';
+import { z } from 'zod';
 import { getAnnotations, setAnnotation, importAnnotationsFromLocalStorage } from '$lib/server/db';
 
-function isValidId(value: unknown): value is string {
-	return typeof value === 'string' && value.length > 0 && value.length <= 500;
-}
+/** No script tags, no null bytes */
+const safeId = z.string().min(1).max(500).regex(/^[^<\x00]*$/);
+const safeText = z.string().max(10_000).regex(/^[^<\x00]*$/);
 
-function isValidMigrationData(
-	data: unknown
-): data is Record<string, Array<{ eventId: string; text: string; createdAt: string }>> {
-	if (typeof data !== 'object' || data === null || Array.isArray(data)) return false;
-	for (const [, value] of Object.entries(data)) {
-		if (!Array.isArray(value)) return false;
-		for (const item of value) {
-			if (
-				typeof item !== 'object' ||
-				item === null ||
-				typeof item.eventId !== 'string' ||
-				typeof item.text !== 'string' ||
-				typeof item.createdAt !== 'string'
-			) {
-				return false;
-			}
-		}
-	}
-	return true;
-}
+const AnnotationEntry = z.object({
+	eventId: safeId,
+	text: safeText,
+	createdAt: safeText
+});
+
+const AnnotationBody = z.object({
+	sessionId: safeId,
+	eventId: safeId,
+	text: safeText.optional().default('')
+});
+
+const MigrationBody = z.object({
+	migrate: z.literal(true),
+	data: z.record(safeId, z.array(AnnotationEntry))
+});
+
+const PostBody = z.union([MigrationBody, AnnotationBody]);
 
 /** GET /api/annotations?sessionId=xxx — get all annotations for a session */
 export const GET = async ({ url }: { url: URL }) => {
 	const sessionId = url.searchParams.get('sessionId');
-	if (!sessionId || !isValidId(sessionId)) {
+	const parsed = safeId.safeParse(sessionId);
+	if (!parsed.success) {
 		return json({ error: 'sessionId required' }, { status: 400 });
 	}
 
-	const annotations = getAnnotations(sessionId);
+	const annotations = getAnnotations(parsed.data);
 	return json(annotations);
 };
 
 /** POST /api/annotations — set or delete an annotation */
 export const POST = async ({ request }: { request: Request }) => {
-	let body: Record<string, unknown>;
+	let rawBody: unknown;
 	try {
-		body = await request.json();
+		rawBody = await request.json();
 	} catch {
 		return json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
-	// Migration endpoint: import from localStorage
-	if (body.migrate && body.data) {
-		if (!isValidMigrationData(body.data)) {
-			return json({ error: 'Invalid migration data' }, { status: 400 });
-		}
-		const count = importAnnotationsFromLocalStorage(body.data);
+	const parsed = PostBody.safeParse(rawBody);
+	if (!parsed.success) {
+		return json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+	}
+
+	const body = parsed.data;
+
+	if ('migrate' in body) {
+		const migrationData: Record<string, Array<{ eventId: string; text: string; createdAt: string }>> = body.data;
+		const count = importAnnotationsFromLocalStorage(migrationData);
 		return json({ migrated: count });
 	}
 
-	const { sessionId, eventId, text } = body;
-	if (!isValidId(sessionId) || !isValidId(eventId)) {
-		return json({ error: 'sessionId and eventId required (non-empty strings, max 500 chars)' }, { status: 400 });
-	}
-
-	const annotationText = typeof text === 'string' ? text.slice(0, 10000) : '';
-	setAnnotation(sessionId, eventId, annotationText);
+	setAnnotation(body.sessionId, body.eventId, body.text);
 	return json({ ok: true });
 };
