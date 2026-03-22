@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		try {
 			const timeline = await parseSessionByProvider(sessionId, provider, meta);
 			const commits = await findRelatedCommits(
-				meta.project || timeline.summary.project,
+				timeline.summary.cwd || meta.project || timeline.summary.project,
 				timeline.summary.startedAt,
 				timeline.summary.lastActiveAt,
 				timeline.events
@@ -92,8 +92,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		const timeline = await parseSession(filePath, sessionId, project);
 
 		// Find related git commits (non-blocking)
+		// Prefer cwd (actual path) over project (decoded, may have broken hyphens)
+		const gitPath = timeline.summary.cwd || project;
 		const commits = await findRelatedCommits(
-			project,
+			gitPath,
 			timeline.summary.startedAt,
 			timeline.summary.lastActiveAt,
 			timeline.events

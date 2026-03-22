@@ -105,15 +105,51 @@ function countFileOverlap(commitFiles: string[], sessionFiles: Set<string>): num
 }
 
 async function findGitDir(projectPath: string): Promise<string | null> {
-	// Claude Code encodes project paths: /Users/foo/bar → Users-foo-bar
-	const decoded = '/' + projectPath.replace(/-/g, '/');
-	try {
-		const { stdout } = await execAsync('git rev-parse --show-toplevel', {
-			cwd: decoded,
-			timeout: 3000
-		});
-		return stdout.trim();
-	} catch {
-		return null;
+	// Try the path as-is first (works when cwd is passed)
+	for (const candidate of getCandidatePaths(projectPath)) {
+		try {
+			const { stdout } = await execAsync('git rev-parse --show-toplevel', {
+				cwd: candidate,
+				timeout: 3000
+			});
+			return stdout.trim();
+		} catch {
+			continue;
+		}
 	}
+	return null;
+}
+
+function getCandidatePaths(projectPath: string): string[] {
+	const candidates: string[] = [];
+
+	// If it's already an absolute path, try it directly
+	if (projectPath.startsWith('/')) {
+		candidates.push(projectPath);
+	}
+
+	// Claude Code encodes: /Users/foo/my-project → -Users-foo-my-project
+	// Naive decode (replace all - with /) breaks names with hyphens.
+	// Strategy: try progressively replacing leading segments.
+	const encoded = projectPath.startsWith('-') ? projectPath : `-${projectPath}`;
+	const parts = encoded.split('-').filter(Boolean);
+
+	// Try reconstructing the path by joining with / but keeping last N segments joined with -
+	// e.g. for parts [Users, mttetc, Projects, agent, replay]:
+	//   /Users/mttetc/Projects/agent-replay  (join last 2 with -)
+	//   /Users/mttetc/Projects/agent/replay  (join all with /)
+	for (let keepLast = 0; keepLast <= Math.min(parts.length - 2, 4); keepLast++) {
+		const dirParts = parts.slice(0, parts.length - keepLast);
+		const tailParts = parts.slice(parts.length - keepLast);
+		const dir = '/' + dirParts.join('/');
+		const tail = tailParts.length > 0 ? '-' + tailParts.join('-') : '';
+		const full = dir + tail;
+		if (!candidates.includes(full)) candidates.push(full);
+	}
+
+	// Also try the simple naive decode as last resort
+	const naive = '/' + projectPath.replace(/-/g, '/');
+	if (!candidates.includes(naive)) candidates.push(naive);
+
+	return candidates;
 }

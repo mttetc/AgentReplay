@@ -18,7 +18,7 @@
 #     }
 #   }
 
-set -euo pipefail
+set -uo pipefail
 
 CLAUDE_DIR="${HOME}/.claude/projects"
 CONFIG_FILE="${HOME}/.agent-replay/hook-config.json"
@@ -47,7 +47,9 @@ TOOL_CALLS=$(grep -c '"type":"tool_use"' "$LATEST_FILE" 2>/dev/null || echo "0")
 ERRORS=$(grep -c '"is_error":true' "$LATEST_FILE" 2>/dev/null || echo "0")
 
 # macOS uses -oE instead of -oP (no PCRE in BSD grep)
-if grep -oP '' /dev/null 2>/dev/null; then
+HAS_PCRE=false
+echo "" | grep -oP '.' >/dev/null 2>&1 && HAS_PCRE=true
+if [ "$HAS_PCRE" = "true" ]; then
   # GNU grep available
   INPUT_TOKENS=$(grep -oP '"input_tokens":\s*\K\d+' "$LATEST_FILE" 2>/dev/null | awk '{s+=$1}END{print s+0}')
   OUTPUT_TOKENS=$(grep -oP '"output_tokens":\s*\K\d+' "$LATEST_FILE" 2>/dev/null | awk '{s+=$1}END{print s+0}')

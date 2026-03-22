@@ -17,6 +17,7 @@
 	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[] } } = $props();
 
 	let sessionId = $derived(data.timeline.summary.sessionId);
+	let displayProject = $derived(data.timeline.summary.cwd || data.timeline.summary.project);
 	let annotatedEventIds = $derived(new Set(getSessionAnnotations(sessionId).keys()));
 	let sidebarTab: 'timeline' | 'files' = $state('timeline');
 
@@ -307,18 +308,18 @@
 				&#8592; Sessions
 			</a>
 			<span class="text-surface-700">|</span>
-			<h1 class="text-surface-100 text-sm font-medium truncate flex-1">
+			<h1 class="text-surface-100 text-sm font-medium truncate">
 				{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)}
 			</h1>
-			<span class="text-surface-400 text-xs truncate hidden sm:inline">{data.timeline.summary.project}</span>
+			<div class="flex-shrink-0" onclick={(e) => e.stopPropagation()}>
+				<SessionTags sessionId={data.timeline.summary.sessionId} />
+			</div>
+			<span class="text-surface-500 text-xs truncate hidden sm:inline ml-auto" title={displayProject}>
+				{displayProject.split('/').slice(-2).join('/')}
+			</span>
 			{#if data.timeline.summary.gitBranch}
 				<span class="text-surface-400 text-xs font-mono bg-surface-800/50 px-2 py-0.5 rounded">
 					{data.timeline.summary.gitBranch}
-				</span>
-			{/if}
-			{#if data.timeline.summary.cwd}
-				<span class="text-surface-500 text-xs truncate hidden sm:inline" title={data.timeline.summary.cwd}>
-					{data.timeline.summary.cwd}
 				</span>
 			{/if}
 
@@ -385,9 +386,6 @@
 			</div>
 		</div>
 		<StatsBar summary={data.timeline.summary} />
-		<div class="py-1">
-			<SessionTags sessionId={data.timeline.summary.sessionId} />
-		</div>
 		<GitCommits commits={data.commits} />
 		<PlaybackControls
 			currentIndex={selectedIndex}
