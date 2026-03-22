@@ -49,6 +49,12 @@ export async function discoverAllSessions(): Promise<SessionSummary[]> {
 	return sessions;
 }
 
+/** Invalidate the discovery cache so the next call fetches fresh data */
+export function invalidateDiscoveryCache() {
+	cachedSessions = null;
+	cacheTimestamp = 0;
+}
+
 /** Parse a session using the correct provider */
 export async function parseSessionByProvider(
 	sessionId: string,
