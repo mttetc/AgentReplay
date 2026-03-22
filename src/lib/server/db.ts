@@ -52,11 +52,25 @@ export function getDb(): Database.Database {
 			expires_at TEXT NOT NULL
 		);
 
+		CREATE TABLE IF NOT EXISTS session_index (
+			session_id TEXT NOT NULL,
+			file_path TEXT NOT NULL,
+			file_mtime REAL NOT NULL,
+			provider TEXT NOT NULL,
+			summary_json TEXT NOT NULL,
+			indexed_at TEXT NOT NULL DEFAULT (datetime('now')),
+			PRIMARY KEY (file_path)
+		);
+
 		CREATE INDEX IF NOT EXISTS idx_annotations_session ON annotations(session_id);
 		CREATE INDEX IF NOT EXISTS idx_bookmarks_session ON bookmarks(session_id);
 		CREATE INDEX IF NOT EXISTS idx_tags_session ON tags(session_id);
 		CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
+		CREATE INDEX IF NOT EXISTS idx_session_index_provider ON session_index(provider);
 	`);
+
+	// Clean up expired cache entries on startup
+	db.prepare("DELETE FROM analysis_cache WHERE expires_at <= datetime('now')").run();
 
 	return db;
 }
@@ -121,6 +135,18 @@ export function removeTag(sessionId: string, tag: string): void {
 export function getAllTags(): Array<{ tag: string; count: number }> {
 	const db = getDb();
 	return db.prepare('SELECT tag, COUNT(*) as count FROM tags GROUP BY tag ORDER BY count DESC').all() as Array<{ tag: string; count: number }>;
+}
+
+/** Get all session→tags mappings at once (for batch filtering) */
+export function getAllSessionTags(): Record<string, string[]> {
+	const db = getDb();
+	const rows = db.prepare('SELECT session_id, tag FROM tags ORDER BY session_id').all() as Array<{ session_id: string; tag: string }>;
+	const map: Record<string, string[]> = {};
+	for (const row of rows) {
+		if (!map[row.session_id]) map[row.session_id] = [];
+		map[row.session_id].push(row.tag);
+	}
+	return map;
 }
 
 // --- Bookmarks ---
@@ -208,4 +234,46 @@ export function importAnnotationsFromLocalStorage(data: Record<string, Array<{ e
 
 	transaction();
 	return count;
+}
+
+// --- Session Index ---
+
+export interface IndexedSession {
+	sessionId: string;
+	filePath: string;
+	fileMtime: number;
+	provider: string;
+	summaryJson: string;
+}
+
+export function getIndexedSession(filePath: string): IndexedSession | undefined {
+	const db = getDb();
+	const row = db.prepare(
+		'SELECT session_id, file_path, file_mtime, provider, summary_json FROM session_index WHERE file_path = ?'
+	).get(filePath) as { session_id: string; file_path: string; file_mtime: number; provider: string; summary_json: string } | undefined;
+	if (!row) return undefined;
+	return { sessionId: row.session_id, filePath: row.file_path, fileMtime: row.file_mtime, provider: row.provider, summaryJson: row.summary_json };
+}
+
+export function setIndexedSession(sessionId: string, filePath: string, fileMtime: number, provider: string, summaryJson: string): void {
+	const db = getDb();
+	db.prepare(`
+		INSERT INTO session_index (session_id, file_path, file_mtime, provider, summary_json)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (file_path)
+		DO UPDATE SET session_id = excluded.session_id, file_mtime = excluded.file_mtime, provider = excluded.provider, summary_json = excluded.summary_json, indexed_at = datetime('now')
+	`).run(sessionId, filePath, fileMtime, provider, summaryJson);
+}
+
+export function getAllIndexedSessions(provider: string): IndexedSession[] {
+	const db = getDb();
+	return (db.prepare(
+		'SELECT session_id, file_path, file_mtime, provider, summary_json FROM session_index WHERE provider = ?'
+	).all(provider) as Array<{ session_id: string; file_path: string; file_mtime: number; provider: string; summary_json: string }>)
+		.map(r => ({ sessionId: r.session_id, filePath: r.file_path, fileMtime: r.file_mtime, provider: r.provider, summaryJson: r.summary_json }));
+}
+
+export function removeIndexedSession(filePath: string): void {
+	const db = getDb();
+	db.prepare('DELETE FROM session_index WHERE file_path = ?').run(filePath);
 }

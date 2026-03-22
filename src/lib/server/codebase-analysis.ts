@@ -3,7 +3,8 @@ import { parseSession } from './parser';
 import { parseSessionByProvider } from './providers';
 import type { ProviderType } from './providers/types';
 import type { TimelineEvent, ToolCallEvent } from '$lib/types/timeline';
-import { shortPath } from '$lib/utils/format';
+import { shortPath, shortModel } from '$lib/utils/format';
+import { analyzePrompts, type PromptPattern } from './prompt-analysis';
 
 function formatCostRaw(cost: number): string {
 	if (cost < 0.01) return '<$0.01';
@@ -112,6 +113,23 @@ export interface Insights {
 	avgErrorsPerSession: number;
 }
 
+export interface ModelBenchmark {
+	model: string;
+	modelId: string;
+	sessionCount: number;
+	avgCost: number;
+	totalCost: number;
+	avgErrorRate: number;
+	avgLoopRate: number;
+	avgDuration: number;
+	avgToolCalls: number;
+	successRate: number;
+	avgTokensPerSession: number;
+	/** Cost efficiency: lower = better value. (avgCost / successRate) * 100 */
+	costEfficiency: number;
+	recommendation: string;
+}
+
 export interface ToolStat {
 	toolName: string;
 	callCount: number;
@@ -156,6 +174,10 @@ export interface CodebaseAnalysis {
 	insights: Insights;
 	/** Per-tool usage statistics */
 	toolStats: ToolStat[];
+	/** Per-model benchmarks for comparison */
+	modelBenchmarks: ModelBenchmark[];
+	/** Prompt pattern analysis — actionable suggestions for better prompts */
+	promptPatterns: PromptPattern[];
 }
 
 const analysisCache = new Map<string, { data: CodebaseAnalysis; timestamp: number }>();
@@ -168,7 +190,7 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		return cached.data;
 	}
 
-	const allSessions = await discoverAllSessions();
+	const { sessions: allSessions } = await discoverAllSessions();
 	const cutoff = daysBack ? new Date(Date.now() - daysBack * 86400000) : null;
 	const sessions = cutoff ? allSessions.filter((s) => new Date(s.startedAt) >= cutoff) : allSessions;
 	const fileMap = new Map<string, FileInsight>();
@@ -180,6 +202,16 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 	let totalLoops = 0;
 	let sessionsAnalyzed = 0;
 	const toolStatsMap = new Map<string, { calls: number; errors: number; totalTokens: number }>();
+	const promptAnalysisData: Array<{ events: TimelineEvent[]; sessionId: string; cost: number; errorCount: number }> = [];
+	const modelSessionData: Array<{
+		model: string;
+		cost: number;
+		errors: number;
+		loops: number;
+		duration: number;
+		toolCalls: number;
+		tokens: number;
+	}> = [];
 
 	const sessionsToAnalyze = sessions.slice(0, 100);
 
@@ -196,6 +228,7 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			}
 			events = timeline.events;
 			sessionsAnalyzed++;
+			promptAnalysisData.push({ events, sessionId: session.sessionId, cost: session.estimatedCost, errorCount: session.errorCount });
 		} catch {
 			continue;
 		}
@@ -213,6 +246,9 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		const sessionErrors = new Map<string, Array<{ tool: string; file: string }>>();
 		let thinkingChars = 0;
 		let totalOutputTokens = 0;
+		let sessionErrorCount = 0;
+		let sessionLoopCount = 0;
+		let sessionToolCallCount = 0;
 
 		// Track operation sequences per file for pattern detection
 		for (const event of events) {
@@ -223,6 +259,8 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			if (event.data.eventType !== 'tool_call') continue;
 
 			const tc = event.data as ToolCallEvent;
+			sessionToolCallCount++;
+			if (tc.result?.isError) sessionErrorCount++;
 
 			// Aggregate per-tool stats across all sessions
 			if (!toolStatsMap.has(tc.toolName)) {
@@ -330,6 +368,7 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			if (editCount >= 3) {
 				fi.loopSessions++;
 				totalLoops++;
+				sessionLoopCount++;
 				wk.loops++;
 				const wastedEdits = editCount - 1;
 				const waste = costPerOp * wastedEdits * 0.5;
@@ -358,6 +397,18 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 				loops, repeatedErrors, thinkingRatio, wastedCost: sessionWaste
 			});
 		}
+
+		// Track per-session data for model benchmarking
+		const duration = new Date(session.lastActiveAt).getTime() - new Date(session.startedAt).getTime();
+		modelSessionData.push({
+			model: session.model,
+			cost: session.estimatedCost,
+			errors: sessionErrorCount,
+			loops: sessionLoopCount,
+			duration: Math.max(0, duration),
+			toolCalls: sessionToolCallCount,
+			tokens: session.inputTokens + session.outputTokens
+		});
 	}
 
 	// Compute derived metrics for each file
@@ -497,7 +548,7 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 	const currentCutoff = daysBack ? new Date(Date.now() - daysBack * 86400000) : null;
 	let previousPeriodCost = 0;
 	if (prevCutoff && currentCutoff) {
-		const prevSessions = (await discoverAllSessions()).filter((s) => {
+		const prevSessions = (await discoverAllSessions()).sessions.filter((s) => {
 			const d = new Date(s.startedAt);
 			return d >= prevCutoff && d < currentCutoff;
 		});
@@ -590,6 +641,101 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		}))
 		.sort((a, b) => b.callCount - a.callCount);
 
+	const promptPatterns = analyzePrompts(promptAnalysisData);
+
+	// Build model benchmarks from per-session data
+	const modelAggMap = new Map<string, {
+		modelId: string;
+		sessions: number;
+		totalCost: number;
+		totalErrors: number;
+		totalLoops: number;
+		totalDuration: number;
+		totalToolCalls: number;
+		totalTokens: number;
+		errorFreeSessions: number;
+	}>();
+
+	for (const sd of modelSessionData) {
+		const name = shortModel(sd.model);
+		if (name === 'Unknown') continue;
+
+		const existing = modelAggMap.get(name) || {
+			modelId: sd.model,
+			sessions: 0, totalCost: 0, totalErrors: 0, totalLoops: 0,
+			totalDuration: 0, totalToolCalls: 0, totalTokens: 0, errorFreeSessions: 0
+		};
+
+		existing.sessions++;
+		existing.totalCost += sd.cost;
+		existing.totalErrors += sd.errors;
+		existing.totalLoops += sd.loops;
+		existing.totalDuration += sd.duration;
+		existing.totalToolCalls += sd.toolCalls;
+		existing.totalTokens += sd.tokens;
+		if (sd.errors === 0) existing.errorFreeSessions++;
+
+		modelAggMap.set(name, existing);
+	}
+
+	const modelBenchmarks: ModelBenchmark[] = [...modelAggMap.entries()]
+		.filter(([, d]) => d.sessions >= 1)
+		.map(([model, d]) => {
+			const mAvgCost = d.totalCost / d.sessions;
+			const mAvgErrorRate = d.totalToolCalls > 0
+				? (d.totalErrors / d.totalToolCalls) * 100
+				: 0;
+			const mAvgLoopRate = d.totalLoops / d.sessions;
+			const mAvgDuration = d.totalDuration / d.sessions;
+			const mAvgToolCalls = d.totalToolCalls / d.sessions;
+			const mSuccessRate = (d.errorFreeSessions / d.sessions) * 100;
+			const mAvgTokens = d.totalTokens / d.sessions;
+			const mCostEff = mSuccessRate > 0
+				? (mAvgCost / mSuccessRate) * 100
+				: mAvgCost * 100;
+
+			return {
+				model,
+				modelId: d.modelId,
+				sessionCount: d.sessions,
+				avgCost: mAvgCost,
+				totalCost: d.totalCost,
+				avgErrorRate: Math.round(mAvgErrorRate * 10) / 10,
+				avgLoopRate: Math.round(mAvgLoopRate * 10) / 10,
+				avgDuration: mAvgDuration,
+				avgToolCalls: Math.round(mAvgToolCalls),
+				successRate: Math.round(mSuccessRate),
+				avgTokensPerSession: Math.round(mAvgTokens),
+				costEfficiency: Math.round(mCostEff * 100) / 100,
+				recommendation: ''
+			};
+		})
+		.sort((a, b) => a.costEfficiency - b.costEfficiency);
+
+	// Generate model recommendations
+	if (modelBenchmarks.length > 0) {
+		const bestSuccess = Math.max(...modelBenchmarks.map((m) => m.successRate));
+		const lowestModelCost = Math.min(...modelBenchmarks.map((m) => m.avgCost));
+		const highestModelCost = Math.max(...modelBenchmarks.map((m) => m.avgCost));
+		const highestModelErrorRate = Math.max(...modelBenchmarks.map((m) => m.avgErrorRate));
+
+		for (const mb of modelBenchmarks) {
+			if (mb.successRate > 90 && mb.avgCost <= lowestModelCost * 1.2) {
+				mb.recommendation = 'Best value -- high success, low cost';
+			} else if (mb.successRate === bestSuccess && bestSuccess > 0) {
+				mb.recommendation = 'Most reliable -- fewest errors';
+			} else if (mb.avgCost >= highestModelCost * 0.9 && mb.successRate < bestSuccess * 0.9) {
+				mb.recommendation = 'Expensive -- consider downgrading';
+			} else if (mb.avgErrorRate >= highestModelErrorRate * 0.9 && highestModelErrorRate > 5) {
+				mb.recommendation = 'Error-prone -- may need better prompts';
+			} else if (mb.sessionCount < 3) {
+				mb.recommendation = 'Limited data -- need more sessions';
+			} else {
+				mb.recommendation = 'Balanced performance';
+			}
+		}
+	}
+
 	const analysis: CodebaseAnalysis = {
 		allFiles: sortedFiles,
 		projects,
@@ -604,7 +750,9 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		},
 		trends,
 		insights,
-		toolStats
+		toolStats,
+		modelBenchmarks,
+		promptPatterns
 	};
 
 	analysisCache.set(cacheKey, { data: analysis, timestamp: Date.now() });

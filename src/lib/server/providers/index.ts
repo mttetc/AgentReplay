@@ -18,16 +18,21 @@ const providerMap = new Map<ProviderType, SessionProvider>(
 	providers.map((p) => [p.type, p])
 );
 
+export interface DiscoveryResult {
+	sessions: SessionSummary[];
+	providerErrors: Array<{ provider: string; error: string }>;
+}
+
 /** Cache for discovery results */
-let cachedSessions: SessionSummary[] | null = null;
+let cachedResult: DiscoveryResult | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60_000; // 60 seconds
 
 /** Discover sessions from all providers in parallel (cached) */
-export async function discoverAllSessions(): Promise<SessionSummary[]> {
+export async function discoverAllSessions(): Promise<DiscoveryResult> {
 	const now = Date.now();
-	if (cachedSessions && (now - cacheTimestamp) < CACHE_TTL_MS) {
-		return cachedSessions;
+	if (cachedResult && (now - cacheTimestamp) < CACHE_TTL_MS) {
+		return cachedResult;
 	}
 
 	const results = await Promise.allSettled(
@@ -35,23 +40,30 @@ export async function discoverAllSessions(): Promise<SessionSummary[]> {
 	);
 
 	const sessions: SessionSummary[] = [];
-	for (const result of results) {
+	const providerErrors: Array<{ provider: string; error: string }> = [];
+	for (let i = 0; i < results.length; i++) {
+		const result = results[i];
 		if (result.status === 'fulfilled') {
 			sessions.push(...result.value);
+		} else {
+			providerErrors.push({
+				provider: providers[i].type,
+				error: result.reason instanceof Error ? result.reason.message : String(result.reason)
+			});
 		}
 	}
 
 	sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
 
-	cachedSessions = sessions;
+	cachedResult = { sessions, providerErrors };
 	cacheTimestamp = now;
 
-	return sessions;
+	return cachedResult;
 }
 
 /** Invalidate the discovery cache so the next call fetches fresh data */
 export function invalidateDiscoveryCache() {
-	cachedSessions = null;
+	cachedResult = null;
 	cacheTimestamp = 0;
 }
 

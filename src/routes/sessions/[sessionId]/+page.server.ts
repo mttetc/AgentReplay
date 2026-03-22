@@ -4,7 +4,7 @@ import { parseSessionByProvider } from '$lib/server/providers';
 import { error } from '@sveltejs/kit';
 import { CLAUDE_DIR } from '$lib/server/config';
 import { readdir, access } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import type { ProviderType } from '$lib/server/providers/types';
 import { findRelatedCommits } from '$lib/server/git-integration';
 import { z } from 'zod';
@@ -54,6 +54,14 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	// Claude Code sessions: existing logic
 	let filePath = url.searchParams.get('file');
 	let project = url.searchParams.get('project') || '';
+
+	// Validate file path is within CLAUDE_DIR to prevent path traversal
+	if (filePath) {
+		const resolved = resolve(filePath);
+		if (!resolved.startsWith(CLAUDE_DIR)) {
+			throw error(400, 'Invalid file path');
+		}
+	}
 
 	if (!filePath) {
 		let projectDirs: string[];

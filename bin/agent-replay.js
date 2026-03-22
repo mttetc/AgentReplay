@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 import { fork, exec } from 'child_process';
 import { platform, homedir } from 'os';
 import { createServer } from 'net';
-import { readdir, stat } from 'fs/promises';
+import { readdir, stat, readFile, writeFile, mkdir, chmod } from 'fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const server = join(__dirname, '..', 'build', 'index.js');
@@ -64,6 +64,54 @@ async function findLastSession() {
 }
 
 async function main() {
+	// Handle --help
+	if (process.argv.includes('--help') || process.argv.includes('-h')) {
+		console.log(`
+  Agent Replay — DevTools for AI Agent Sessions
+
+  Usage:
+    agent-replay              Start the dashboard
+    agent-replay last         Open the most recent session directly
+    agent-replay install-hook Install the smart post-session hook
+    agent-replay config       Show hook configuration
+    agent-replay config <key> <value>  Set a config value
+
+  Options:
+    --no-open                 Don't auto-open the browser
+    --port <number>           Set the server port (default: 3000)
+    -h, --help                Show this help message
+    -v, --version             Show version number
+
+  Providers:
+    Claude Code               ~/.claude/projects/
+    Cursor                    VS Code Cursor workspace storage
+    Windsurf                  Codeium editor storage
+    Aider                     ~/.aider.chat.history.md
+    GitHub Copilot            VS Code Copilot chat storage
+
+  Environment:
+    PORT                      Server port (default: 3000)
+    CLAUDE_DIR                Claude Code sessions directory
+    DEMO_MODE                 Run with demo data (true/false)
+`);
+		process.exit(0);
+	}
+
+	// Handle --version
+	if (process.argv.includes('--version') || process.argv.includes('-v')) {
+		const pkg = JSON.parse(await readFile(join(__dirname, '..', 'package.json'), 'utf-8'));
+		console.log(`agent-replay v${pkg.version}`);
+		process.exit(0);
+	}
+
+	// Handle --port
+	const portArgIdx = process.argv.indexOf('--port');
+	const portOverride = portArgIdx !== -1 ? parseInt(process.argv[portArgIdx + 1], 10) : null;
+
+	// Read version for display
+	const pkg = JSON.parse(await readFile(join(__dirname, '..', 'package.json'), 'utf-8'));
+	const version = pkg.version;
+
 	// Handle `agent-replay last`
 	if (subcommand === 'last') {
 		const session = await findLastSession();
@@ -72,11 +120,11 @@ async function main() {
 			process.exit(1);
 		}
 
-		const preferredPort = parseInt(process.env.PORT || '3000', 10);
+		const preferredPort = portOverride || parseInt(process.env.PORT || '3000', 10);
 		const port = await findFreePort(preferredPort);
 		const url = `http://localhost:${port}/sessions/${session.sessionId}?project=${encodeURIComponent(session.project)}&file=${encodeURIComponent(session.filePath)}`;
 
-		console.log(`\n  Agent Replay — opening last session`);
+		console.log(`\n  Agent Replay v${version} — opening last session`);
 		console.log(`  ${session.project} / ${session.sessionId.slice(0, 8)}`);
 		console.log(`  ${url}\n`);
 
@@ -90,14 +138,126 @@ async function main() {
 		return;
 	}
 
-	const preferredPort = parseInt(process.env.PORT || '3000', 10);
+	// Handle `agent-replay install-hook`
+	if (subcommand === 'install-hook') {
+		const settingsPath = join(homedir(), '.claude', 'settings.json');
+		const hookScript = join(__dirname, '..', 'hooks', 'post-session-summary.sh');
+
+		// Ensure hook is executable
+		await chmod(hookScript, 0o755);
+
+		// Read or create settings
+		let settings = {};
+		try {
+			settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+		} catch {
+			// File doesn't exist yet, start fresh
+		}
+
+		// Add hook
+		if (!settings.hooks) settings.hooks = {};
+		if (!settings.hooks.Stop) settings.hooks.Stop = [];
+
+		// Check if already installed
+		const alreadyInstalled = settings.hooks.Stop.some(entry =>
+			entry.hooks?.some(h => h.command?.includes('post-session-summary'))
+		);
+
+		if (alreadyInstalled) {
+			console.log('\n  Hook already installed!\n');
+		} else {
+			settings.hooks.Stop.push({
+				matcher: '',
+				hooks: [{
+					type: 'command',
+					command: hookScript
+				}]
+			});
+
+			await mkdir(dirname(settingsPath), { recursive: true });
+			await writeFile(settingsPath, JSON.stringify(settings, null, 2));
+
+			// Create default config
+			const configDir = join(homedir(), '.agent-replay');
+			await mkdir(configDir, { recursive: true });
+			const configPath = join(configDir, 'hook-config.json');
+
+			// Only write config if it doesn't exist
+			try {
+				await stat(configPath);
+			} catch {
+				await writeFile(configPath, JSON.stringify({
+					costThreshold: 1.00,
+					errorRateThreshold: 20,
+					loopThreshold: 3
+				}, null, 2));
+			}
+
+			console.log(`\n  Hook installed!`);
+			console.log(`  Settings: ${settingsPath}`);
+			console.log(`  Config: ${configDir}/hook-config.json`);
+			console.log(`\n  You'll get notified when sessions have:`);
+			console.log('    - Cost > $1.00');
+			console.log('    - Error rate > 20%');
+			console.log('    - Edit loops on files');
+			console.log('\n  Customize thresholds in hook-config.json\n');
+		}
+
+		process.exit(0);
+	}
+
+	// Handle `agent-replay config [key] [value]`
+	if (subcommand === 'config') {
+		const configPath = join(homedir(), '.agent-replay', 'hook-config.json');
+		const key = process.argv[3];
+		const value = process.argv[4];
+
+		// Read config
+		let config = { costThreshold: 1.00, errorRateThreshold: 20, loopThreshold: 3 };
+		try {
+			config = JSON.parse(await readFile(configPath, 'utf-8'));
+		} catch {
+			// Use defaults
+		}
+
+		if (!key) {
+			// Show config
+			console.log('\n  Agent Replay Configuration\n');
+			for (const [k, v] of Object.entries(config)) {
+				console.log(`  ${k}: ${v}`);
+			}
+			console.log(`\n  Path: ${configPath}\n`);
+		} else if (value !== undefined) {
+			// Set value
+			config[key] = isNaN(Number(value)) ? value : Number(value);
+			await mkdir(dirname(configPath), { recursive: true });
+			await writeFile(configPath, JSON.stringify(config, null, 2));
+			console.log(`\n  ${key} = ${config[key]}\n`);
+		} else {
+			// Show single value
+			if (key in config) {
+				console.log(`\n  ${key}: ${config[key]}\n`);
+			} else {
+				console.error(`\n  Unknown key: ${key}`);
+				console.error(`  Available: ${Object.keys(config).join(', ')}\n`);
+				process.exit(1);
+			}
+		}
+
+		process.exit(0);
+	}
+
+	const preferredPort = portOverride || parseInt(process.env.PORT || '3000', 10);
 	const port = await findFreePort(preferredPort);
 
+	console.log(`\n  Agent Replay v${version}`);
+	console.log(`  Scanning for sessions...`);
+	console.log(`  Providers: Claude Code, Cursor, Windsurf, Aider, Copilot`);
+	const claudeDir = join(homedir(), '.claude', 'projects');
+	console.log(`  Looking in ${claudeDir}`);
+
 	if (port !== preferredPort) {
-		console.log(`\n  Agent Replay`);
 		console.log(`  Port ${preferredPort} is in use, using ${port} instead`);
-	} else {
-		console.log(`\n  Agent Replay`);
 	}
 
 	const url = `http://localhost:${port}`;

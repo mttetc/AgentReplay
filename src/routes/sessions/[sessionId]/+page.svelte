@@ -33,6 +33,7 @@
 	let toolFilter = $state('all');
 	let searchInputEl: HTMLInputElement | undefined = $state();
 	let showExportMenu = $state(false);
+	let showShortcuts = $state(false);
 	let copyFeedback = $state('');
 
 
@@ -354,6 +355,31 @@
 						<button onclick={copyMarkdown} class="w-full text-center px-3 py-2 text-xs text-surface-400 hover:text-surface-200 bg-surface-800/50 border border-surface-800 rounded-lg hover:border-surface-700 transition-colors">
 							Copy as Markdown
 						</button>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Keyboard shortcuts -->
+			<div class="relative">
+				<button
+					onclick={() => (showShortcuts = !showShortcuts)}
+					class="text-surface-500 hover:text-surface-300 text-xs font-medium w-7 h-7 rounded-lg border border-surface-700 hover:border-surface-500 transition-colors flex items-center justify-center"
+					title="Keyboard shortcuts"
+				>?</button>
+				{#if showShortcuts}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="absolute right-0 top-full mt-2 bg-surface-900 border border-surface-800 rounded-lg shadow-xl z-50 p-3 min-w-[200px]"
+						onmouseleave={() => (showShortcuts = false)}
+					>
+						<div class="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Keyboard shortcuts</div>
+						<div class="space-y-1.5 text-xs">
+							<div class="flex justify-between gap-4"><span class="text-surface-400">Previous event</span><kbd class="text-surface-300 bg-surface-800 rounded px-1.5 py-0.5 font-mono text-[10px]">&larr;</kbd></div>
+							<div class="flex justify-between gap-4"><span class="text-surface-400">Next event</span><kbd class="text-surface-300 bg-surface-800 rounded px-1.5 py-0.5 font-mono text-[10px]">&rarr;</kbd></div>
+							<div class="flex justify-between gap-4"><span class="text-surface-400">Play / Pause</span><kbd class="text-surface-300 bg-surface-800 rounded px-1.5 py-0.5 font-mono text-[10px]">Space</kbd></div>
+							<div class="flex justify-between gap-4"><span class="text-surface-400">Search events</span><kbd class="text-surface-300 bg-surface-800 rounded px-1.5 py-0.5 font-mono text-[10px]">&#8984;F</kbd></div>
+							<div class="flex justify-between gap-4"><span class="text-surface-400">Clear search</span><kbd class="text-surface-300 bg-surface-800 rounded px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd></div>
+						</div>
 					</div>
 				{/if}
 			</div>

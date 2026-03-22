@@ -5,11 +5,37 @@
 	import SessionCard from './SessionCard.svelte';
 	import EmptyState from './EmptyState.svelte';
 
+	import { browser } from '$app/environment';
+
 	let { sessions }: { sessions: SessionSummary[] } = $props();
 	let search = $state('');
 	let compareMode = $state(false);
 	let compareSelection = $state<string[]>([]);
 	let showFilters = $state(false);
+
+	// Restore persisted filters from localStorage
+	function loadFilters(): Record<string, unknown> | null {
+		if (typeof localStorage === 'undefined') return null;
+		try { return JSON.parse(localStorage.getItem('ar-session-filters') || 'null'); } catch { return null; }
+	}
+	const savedFilters = loadFilters();
+
+	// Tags state — fetched from API
+	let allTags: Array<{ tag: string; count: number }> = $state([]);
+	let sessionTags: Map<string, string[]> = $state(new Map());
+	let tagFilter = $state((savedFilters?.tagFilter as string) || 'all');
+
+	// Fetch all tags + session→tags mapping in 2 parallel requests
+	$effect(() => {
+		if (!browser) return;
+		Promise.all([
+			fetch('/api/tags').then(r => r.json()),
+			fetch('/api/tags?map=true').then(r => r.json())
+		]).then(([tags, map]: [Array<{ tag: string; count: number }>, Record<string, string[]>]) => {
+			allTags = tags;
+			sessionTags = new Map(Object.entries(map));
+		}).catch(() => {});
+	});
 
 	function toggleCompare(sessionId: string) {
 		if (compareSelection.includes(sessionId)) {
@@ -24,18 +50,26 @@
 			? `/compare?a=${compareSelection[0]}&b=${compareSelection[1]}`
 			: ''
 	);
-	let sortBy: 'date' | 'model' | 'cost' | 'duration' | 'tokens' = $state('date');
-	let sortDir: 'asc' | 'desc' = $state('desc');
-	let providerFilter: ProviderType | 'all' = $state('all');
+	let sortBy: 'date' | 'model' | 'cost' | 'duration' | 'tokens' = $state((savedFilters?.sortBy as typeof sortBy) || 'date');
+	let sortDir: 'asc' | 'desc' = $state((savedFilters?.sortDir as 'asc' | 'desc') || 'desc');
+	let providerFilter: ProviderType | 'all' = $state((savedFilters?.providerFilter as ProviderType | 'all') || 'all');
 	let visibleCount = $state(50);
 	let sentinel: HTMLDivElement | undefined = $state();
 
 	// Advanced filters
-	let modelFilter = $state('all');
-	let minCost = $state('');
-	let maxCost = $state('');
-	let hasErrors = $state(false);
-	let dateRange: '1d' | '7d' | '30d' | '90d' | 'all' = $state('all');
+	let modelFilter = $state((savedFilters?.modelFilter as string) || 'all');
+	let minCost = $state((savedFilters?.minCost as string) || '');
+	let maxCost = $state((savedFilters?.maxCost as string) || '');
+	let hasErrors = $state((savedFilters?.hasErrors as boolean) || false);
+	let dateRange: '1d' | '7d' | '30d' | '90d' | 'all' = $state((savedFilters?.dateRange as typeof dateRange) || 'all');
+
+	// Persist filters to localStorage when they change
+	$effect(() => {
+		if (!browser) return;
+		localStorage.setItem('ar-session-filters', JSON.stringify({
+			sortBy, sortDir, providerFilter, modelFilter, minCost, maxCost, hasErrors, dateRange, tagFilter
+		}));
+	});
 
 	let availableProviders = $derived(
 		[...new Set(sessions.map((s) => s.provider).filter(Boolean))] as ProviderType[]
@@ -51,7 +85,8 @@
 		(maxCost !== '' ? 1 : 0) +
 		(hasErrors ? 1 : 0) +
 		(dateRange !== 'all' ? 1 : 0) +
-		(providerFilter !== 'all' ? 1 : 0)
+		(providerFilter !== 'all' ? 1 : 0) +
+		(tagFilter !== 'all' ? 1 : 0)
 	);
 
 	function getDuration(s: SessionSummary): number {
@@ -76,6 +111,7 @@
 		maxCost = '';
 		hasErrors = false;
 		dateRange = 'all';
+		tagFilter = 'all';
 	}
 
 	function getDateCutoff(range: string): number {
@@ -91,6 +127,10 @@
 			if (minCost !== '' && s.estimatedCost < parseFloat(minCost)) return false;
 			if (maxCost !== '' && s.estimatedCost > parseFloat(maxCost)) return false;
 			if (hasErrors && s.errorCount === 0) return false;
+			if (tagFilter !== 'all') {
+				const tags = sessionTags.get(s.sessionId);
+				if (!tags || !tags.includes(tagFilter)) return false;
+			}
 			if (dateRange !== 'all') {
 				const cutoff = getDateCutoff(dateRange);
 				if (new Date(s.lastActiveAt).getTime() < cutoff) return false;
@@ -230,7 +270,7 @@
 
 	<!-- Advanced filters panel -->
 	{#if showFilters}
-		<div class="bg-surface-900 border border-surface-800 rounded-lg p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+		<div class="bg-surface-900 border border-surface-800 rounded-lg p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
 			<!-- Provider -->
 			<div>
 				<label class="text-[10px] text-surface-500 uppercase tracking-wider block mb-1">Provider</label>
@@ -309,6 +349,22 @@
 					{hasErrors ? 'With errors only' : 'All sessions'}
 				</button>
 			</div>
+
+			<!-- Tag filter -->
+			{#if allTags.length > 0}
+				<div>
+					<label class="text-[10px] text-surface-500 uppercase tracking-wider block mb-1">Tag</label>
+					<select
+						bind:value={tagFilter}
+						class="w-full bg-surface-950 border border-surface-800 rounded px-2 py-1.5 text-xs text-surface-200 focus:outline-none focus:border-surface-600"
+					>
+						<option value="all">All tags</option>
+						{#each allTags as t}
+							<option value={t.tag}>{t.tag} ({t.count})</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 		</div>
 	{/if}
 

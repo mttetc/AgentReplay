@@ -1,16 +1,27 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
+	import { browser } from '$app/environment';
 	import { formatCost, formatDate } from '$lib/utils/format';
 	import type { FileInsight, ProjectInsight, DirectoryInsight } from '$lib/server/codebase-analysis';
 	import InsightsHero from '../components/InsightsHero.svelte';
 	import ToolAnalytics from '../components/ToolAnalytics.svelte';
+	import ModelBenchmarks from '../components/ModelBenchmarks.svelte';
+	import PromptInsights from '../components/PromptInsights.svelte';
 
 	let { data } = $props();
 	let a = $derived(data.analysis);
 
+	// Live refresh via SSE
+	$effect(() => {
+		if (!browser) return;
+		const source = new EventSource('/api/events');
+		source.onmessage = () => invalidateAll();
+		return () => source.close();
+	});
+
 	// Tab state — derived from URL hash or default
-	let tab: 'overview' | 'tools' | 'explorer' = $state('overview');
+	let tab: 'overview' | 'tools' | 'models' | 'explorer' = $state('overview');
 
 	// Build URL from state
 	function buildUrl(params: Record<string, string | undefined>) {
@@ -208,6 +219,7 @@
 	const tabs = [
 		{ key: 'overview' as const, label: 'Overview' },
 		{ key: 'tools' as const, label: 'Tools' },
+		{ key: 'models' as const, label: 'Models' },
 		{ key: 'explorer' as const, label: 'Explorer' }
 	];
 </script>
@@ -248,6 +260,10 @@
 	<!-- TAB: Overview -->
 	{#if tab === 'overview'}
 		<InsightsHero analysis={a} />
+
+		{#if a.promptPatterns.length > 0}
+			<PromptInsights patterns={a.promptPatterns} />
+		{/if}
 
 		<!-- Recent sessions -->
 		{#if a.recentSessions.length > 0}
@@ -309,6 +325,14 @@
 					{/each}
 				</div>
 			</div>
+		{/if}
+
+	<!-- TAB: Models -->
+	{:else if tab === 'models'}
+		{#if a.modelBenchmarks.length > 0}
+			<ModelBenchmarks benchmarks={a.modelBenchmarks} />
+		{:else}
+			<div class="text-center py-16 text-surface-500 text-sm">Not enough data to compare models yet.</div>
 		{/if}
 
 	<!-- TAB: Explorer -->

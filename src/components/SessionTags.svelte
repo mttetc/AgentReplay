@@ -110,9 +110,11 @@
 		{:else}
 			<button
 				onclick={startAdding}
-				class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] text-blue-400 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
-				title="Add tag"
-			>+</button>
+				class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-surface-500 border border-dashed border-surface-700 hover:text-blue-400 hover:border-blue-500/30 transition-colors"
+			>
+				<span class="text-[10px]">+</span>
+				{tags.length === 0 ? 'Add tag' : 'Tag'}
+			</button>
 		{/if}
 	{/if}
 </div>

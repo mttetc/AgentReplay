@@ -2,6 +2,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, basename } from 'path';
 import { CLAUDE_DIR } from './config';
 import { estimateCost } from '$lib/utils/cost';
+import { getIndexedSession, setIndexedSession } from './db';
 import type { SessionSummary } from '$lib/types/timeline';
 import type { RawEntry, RawAssistantEntry, RawUserEntry } from '$lib/types/raw';
 
@@ -42,7 +43,7 @@ export async function discoverSessions(): Promise<SessionSummary[]> {
 			const sessionId = basename(file, '.jsonl');
 
 			allPromises.push(
-				buildSummary(filePath, sessionId, projectDir).catch(() => null)
+				buildSummaryWithCache(filePath, sessionId, projectDir).catch(() => null)
 			);
 		}
 	}
@@ -55,6 +56,32 @@ export async function discoverSessions(): Promise<SessionSummary[]> {
 	// Sort by most recent first
 	sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
 	return sessions;
+}
+
+async function buildSummaryWithCache(
+	filePath: string,
+	sessionId: string,
+	projectDir: string
+): Promise<SessionSummary | null> {
+	const fileStat = await stat(filePath).catch(() => null);
+	if (!fileStat) return null;
+
+	const mtimeMs = fileStat.mtimeMs;
+	const cached = getIndexedSession(filePath);
+
+	if (cached && cached.fileMtime === mtimeMs) {
+		try {
+			return JSON.parse(cached.summaryJson) as SessionSummary;
+		} catch {
+			// Corrupted cache entry, fall through to rebuild
+		}
+	}
+
+	const summary = await buildSummary(filePath, sessionId, projectDir);
+	if (summary) {
+		setIndexedSession(sessionId, filePath, mtimeMs, 'claude-code', JSON.stringify(summary));
+	}
+	return summary;
 }
 
 async function buildSummary(

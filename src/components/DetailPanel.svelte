@@ -6,6 +6,7 @@
 	import CodeBlock from './CodeBlock.svelte';
 	import FilePath from './FilePath.svelte';
 	import AnnotationBox from './AnnotationBox.svelte';
+	import EventBookmark from './EventBookmark.svelte';
 
 	let { event, sessionId = '' }: { event: TimelineEvent | null; sessionId?: string } = $props();
 </script>
@@ -139,9 +140,14 @@
 			</div>
 		{/if}
 
-		<!-- Annotation -->
+		<!-- Bookmark + Annotation -->
 		{#if sessionId && event}
-			<AnnotationBox {sessionId} eventId={event.id} />
+			<div class="flex items-start gap-3">
+				<EventBookmark {sessionId} eventId={event.id} />
+				<div class="flex-1">
+					<AnnotationBox {sessionId} eventId={event.id} />
+				</div>
+			</div>
 		{/if}
 	</div>
 {/if}

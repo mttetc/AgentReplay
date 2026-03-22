@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { z } from 'zod';
-import { getTags, setTag, removeTag, getAllTags } from '$lib/server/db';
+import { getTags, setTag, removeTag, getAllTags, getAllSessionTags } from '$lib/server/db';
 
 /** No script tags, no null bytes */
 const safeId = z.string().min(1).max(500).regex(/^[^<\x00]*$/);
@@ -8,6 +8,7 @@ const safeTag = z.string().min(1).max(50).regex(/^[a-zA-Z0-9_\- ]+$/);
 
 /** GET /api/tags?sessionId=xxx — get tags for a session */
 /** GET /api/tags — get all tags with counts */
+/** GET /api/tags?map=true — get all session→tags mappings */
 export const GET = async ({ url }: { url: URL }) => {
 	const sessionId = url.searchParams.get('sessionId');
 	if (sessionId) {
@@ -16,6 +17,9 @@ export const GET = async ({ url }: { url: URL }) => {
 			return json({ error: 'Invalid sessionId' }, { status: 400 });
 		}
 		return json(getTags(parsed.data));
+	}
+	if (url.searchParams.get('map') === 'true') {
+		return json(getAllSessionTags());
 	}
 	return json(getAllTags());
 };

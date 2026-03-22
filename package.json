@@ -9,6 +9,7 @@
 	"files": [
 		"build/",
 		"bin/",
+		"hooks/",
 		"static/",
 		"README.md",
 		"LICENSE"
