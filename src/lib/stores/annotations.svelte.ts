@@ -1,4 +1,4 @@
-/** Persistent annotations store using localStorage */
+/** Persistent annotations store — uses SQLite via API with localStorage fallback/migration */
 
 export interface Annotation {
 	eventId: string;
@@ -7,8 +7,9 @@ export interface Annotation {
 }
 
 const STORAGE_KEY = 'agent-replay-annotations';
+const MIGRATED_KEY = 'agent-replay-annotations-migrated';
 
-function loadAnnotations(): Map<string, Map<string, Annotation>> {
+function loadFromLocalStorage(): Map<string, Map<string, Annotation>> {
 	if (typeof localStorage === 'undefined') return new Map();
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
@@ -28,22 +29,67 @@ function loadAnnotations(): Map<string, Map<string, Annotation>> {
 	}
 }
 
-function saveAnnotations(map: Map<string, Map<string, Annotation>>) {
+// Migrate localStorage data to SQLite (one-time)
+async function migrateToSqlite() {
 	if (typeof localStorage === 'undefined') return;
-	const obj: Record<string, Annotation[]> = {};
-	for (const [sessionId, eventMap] of map) {
-		obj[sessionId] = [...eventMap.values()];
+	if (localStorage.getItem(MIGRATED_KEY)) return;
+
+	const raw = localStorage.getItem(STORAGE_KEY);
+	if (!raw) {
+		localStorage.setItem(MIGRATED_KEY, 'true');
+		return;
 	}
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+
+	try {
+		const parsed = JSON.parse(raw) as Record<string, Annotation[]>;
+		const response = await fetch('/api/annotations', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ migrate: true, data: parsed })
+		});
+		if (response.ok) {
+			localStorage.setItem(MIGRATED_KEY, 'true');
+		}
+	} catch {
+		// Will retry next time
+	}
 }
 
-let store = $state(loadAnnotations());
+let store = $state(loadFromLocalStorage());
+let initialized = false;
+
+// Auto-migrate on first load
+if (typeof window !== 'undefined') {
+	migrateToSqlite();
+}
+
+/** Load annotations from API for a specific session */
+async function loadFromApi(sessionId: string): Promise<void> {
+	try {
+		const response = await fetch(`/api/annotations?sessionId=${encodeURIComponent(sessionId)}`);
+		if (!response.ok) return;
+		const annotations = await response.json() as Array<{ sessionId: string; eventId: string; text: string; createdAt: string }>;
+
+		const eventMap = new Map<string, Annotation>();
+		for (const ann of annotations) {
+			eventMap.set(ann.eventId, { eventId: ann.eventId, text: ann.text, createdAt: ann.createdAt });
+		}
+		store.set(sessionId, eventMap);
+		store = new Map(store); // Trigger reactivity
+	} catch {
+		// Fall back to localStorage data
+	}
+}
 
 export function getAnnotation(sessionId: string, eventId: string): Annotation | undefined {
 	return store.get(sessionId)?.get(eventId);
 }
 
 export function getSessionAnnotations(sessionId: string): Map<string, Annotation> {
+	// Trigger API load on first access
+	if (typeof window !== 'undefined' && !store.has(sessionId)) {
+		loadFromApi(sessionId);
+	}
 	return store.get(sessionId) || new Map();
 }
 
@@ -59,5 +105,25 @@ export function setAnnotation(sessionId: string, eventId: string, text: string) 
 	}
 	// Trigger reactivity
 	store = new Map(store);
-	saveAnnotations(store);
+
+	// Persist to SQLite via API (non-blocking)
+	if (typeof window !== 'undefined') {
+		fetch('/api/annotations', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ sessionId, eventId, text })
+		}).catch(() => {
+			// Fallback: save to localStorage
+			saveToLocalStorage();
+		});
+	}
+}
+
+function saveToLocalStorage() {
+	if (typeof localStorage === 'undefined') return;
+	const obj: Record<string, Annotation[]> = {};
+	for (const [sessionId, eventMap] of store) {
+		obj[sessionId] = [...eventMap.values()];
+	}
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
 }

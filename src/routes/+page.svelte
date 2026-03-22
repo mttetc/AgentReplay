@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { formatCost, formatDate, formatNumber } from '$lib/utils/format';
+	import { formatCost, formatDate } from '$lib/utils/format';
 	import type { FileInsight, ProjectInsight, DirectoryInsight } from '$lib/server/codebase-analysis';
+	import InsightsHero from '../components/InsightsHero.svelte';
 
 	let { data } = $props();
-	const a = data.analysis;
+	let a = $derived(data.analysis);
 
 	// Build URL from state
 	function buildUrl(params: Record<string, string | undefined>) {
@@ -71,7 +72,6 @@
 		visibleCount = 30;
 	}
 
-	// Filtered + sorted projects
 	let filteredProjects = $derived.by(() => {
 		let items = a.projects;
 		if (search) {
@@ -91,7 +91,6 @@
 		});
 	});
 
-	// Filtered directories
 	let filteredDirs = $derived.by(() => {
 		if (view.level !== 'directories') return [];
 		let items = view.project.directories;
@@ -105,7 +104,6 @@
 		});
 	});
 
-	// Filtered files
 	let filteredFiles = $derived.by(() => {
 		if (view.level !== 'files') return [];
 		let items = view.dir.files;
@@ -202,18 +200,22 @@
 		visibleCount = 30;
 	});
 
-	const sortOptions: Array<{ key: typeof sortBy; label: string }> = [
-		{ key: 'cost', label: 'Cost' },
-		{ key: 'errors', label: 'Errors' },
-		{ key: 'loops', label: 'Loops' },
-		{ key: 'sessions', label: 'Sessions' },
-		{ key: 'difficulty', label: 'Difficulty' }
+	const sortOptions = [
+		{ key: 'cost' as const, label: 'Cost' },
+		{ key: 'errors' as const, label: 'Errors' },
+		{ key: 'loops' as const, label: 'Loops' },
+		{ key: 'sessions' as const, label: 'Sessions' },
+		{ key: 'difficulty' as const, label: 'Difficulty' }
 	];
 </script>
 
 <svelte:head><title>agent replay</title></svelte:head>
 
 <div class="px-4 py-4 sm:px-6 sm:py-5">
+	{#if view.level === 'projects'}
+		<InsightsHero analysis={a} />
+	{/if}
+
 	<!-- Top: time filter + summary -->
 	<div class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-5">
 		<div class="flex gap-1">
@@ -260,7 +262,7 @@
 
 	<!-- Explorer -->
 	<div class="bg-surface-900 border border-surface-800 rounded-lg overflow-hidden flex-1 flex flex-col min-h-0 mb-6">
-		<!-- Breadcrumb + search + sort -->
+		<!-- Breadcrumb + search -->
 		<div class="px-4 py-2.5 border-b border-surface-800 space-y-2">
 			<nav class="flex items-center gap-1 text-xs overflow-x-auto">
 				{#each breadcrumbs as crumb, i}
@@ -290,45 +292,44 @@
 		{#if view.level === 'file'}
 			{@const f = view.file}
 			<div class="px-4 py-4">
-					<div class="flex items-center gap-3 mb-3">
-						<span class="{difficultyColor(f.difficultyScore)} text-2xl font-bold" style="font-family: 'Space Grotesk', sans-serif;">{f.difficultyScore}</span>
-						<div>
-							<div class="text-surface-200 text-sm font-mono">{f.path}</div>
-							<div class="text-surface-400 text-[10px]">{f.reads} reads · {f.writes + f.edits} edits · {f.errors} errors · {f.sessionCount} sessions</div>
-						</div>
+				<div class="flex items-center gap-3 mb-3">
+					<span class="{difficultyColor(f.difficultyScore)} text-2xl font-bold" style="font-family: 'Space Grotesk', sans-serif;">{f.difficultyScore}</span>
+					<div>
+						<div class="text-surface-200 text-sm font-mono">{f.path}</div>
+						<div class="text-surface-400 text-[10px]">{f.reads} reads · {f.writes + f.edits} edits · {f.errors} errors · {f.sessionCount} sessions</div>
 					</div>
-
-					{#if f.recommendation}
-						<div class="bg-amber-500/5 border border-amber-500/15 rounded-md px-3 py-2 mb-4">
-							<p class="text-amber-400 text-xs">{f.recommendation}</p>
-						</div>
-					{/if}
-
-					<div class="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Sessions</div>
-					{#each [...f.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) as s}
-						<a href="/sessions/{s.sessionId}?project={encodeURIComponent(s.project)}"
-							class="flex items-center gap-3 py-2 border-t border-surface-800/30 hover:bg-surface-800/20 transition-colors text-xs">
-							<span class="text-surface-200 truncate flex-1">{s.slug || s.sessionId.slice(0, 8)}</span>
-							<span class="text-surface-500">{formatDate(s.startedAt)}</span>
-							<span class="text-emerald-400">{formatCost(s.cost)}</span>
-							<span class="text-surface-400">{s.ops} ops</span>
-							{#if s.errors > 0}<span class="text-red-400">{s.errors} err</span>{/if}
-						</a>
-					{/each}
 				</div>
+
+				{#if f.recommendation}
+					<div class="bg-amber-500/5 border border-amber-500/15 rounded-md px-3 py-2 mb-4">
+						<p class="text-amber-400 text-xs">{f.recommendation}</p>
+					</div>
+				{/if}
+
+				<div class="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Sessions</div>
+				{#each [...f.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)) as s}
+					<a href="/sessions/{s.sessionId}?project={encodeURIComponent(s.project)}"
+						class="flex items-center gap-3 py-2 border-t border-surface-800/30 hover:bg-surface-800/20 transition-colors text-xs">
+						<span class="text-surface-200 truncate flex-1">{s.slug || s.sessionId.slice(0, 8)}</span>
+						<span class="text-surface-500">{formatDate(s.startedAt)}</span>
+						<span class="text-emerald-400">{formatCost(s.cost)}</span>
+						<span class="text-surface-400">{s.ops} ops</span>
+						{#if s.errors > 0}<span class="text-red-400">{s.errors} err</span>{/if}
+					</a>
+				{/each}
+			</div>
 		{:else}
 			<!-- Header row -->
 			<div class="explorer-row sticky top-0 bg-surface-900 z-10 border-b border-surface-800 text-xs px-4 py-2.5">
 				<span class="text-surface-500 font-medium">Name</span>
-				<button onclick={() => setSort('cost')} class="text-right transition-colors {sortBy === 'cost' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Cost{#if sortBy === 'cost'} {sortDir === 'asc' ? '↑' : '↓'}{/if}</button>
-				<button onclick={() => setSort('errors')} class="text-right transition-colors {sortBy === 'errors' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Errors{#if sortBy === 'errors'} {sortDir === 'asc' ? '↑' : '↓'}{/if}</button>
-				<button onclick={() => setSort('loops')} class="text-right transition-colors hidden sm:block {sortBy === 'loops' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Loops{#if sortBy === 'loops'} {sortDir === 'asc' ? '↑' : '↓'}{/if}</button>
-				<button onclick={() => setSort('sessions')} class="text-right transition-colors {sortBy === 'sessions' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Sessions{#if sortBy === 'sessions'} {sortDir === 'asc' ? '↑' : '↓'}{/if}</button>
-				<button onclick={() => setSort('difficulty')} class="text-right transition-colors hidden sm:block {sortBy === 'difficulty' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Diff.{#if sortBy === 'difficulty'} {sortDir === 'asc' ? '↑' : '↓'}{/if}</button>
+				<button onclick={() => setSort('cost')} class="text-right transition-colors {sortBy === 'cost' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Cost{#if sortBy === 'cost'} {sortDir === 'asc' ? '\u2191' : '\u2193'}{/if}</button>
+				<button onclick={() => setSort('errors')} class="text-right transition-colors {sortBy === 'errors' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Errors{#if sortBy === 'errors'} {sortDir === 'asc' ? '\u2191' : '\u2193'}{/if}</button>
+				<button onclick={() => setSort('loops')} class="text-right transition-colors hidden sm:block {sortBy === 'loops' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Loops{#if sortBy === 'loops'} {sortDir === 'asc' ? '\u2191' : '\u2193'}{/if}</button>
+				<button onclick={() => setSort('sessions')} class="text-right transition-colors {sortBy === 'sessions' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Sessions{#if sortBy === 'sessions'} {sortDir === 'asc' ? '\u2191' : '\u2193'}{/if}</button>
+				<button onclick={() => setSort('difficulty')} class="text-right transition-colors hidden sm:block {sortBy === 'difficulty' ? 'text-surface-200' : 'text-surface-500 hover:text-surface-300'}">Diff.{#if sortBy === 'difficulty'} {sortDir === 'asc' ? '\u2191' : '\u2193'}{/if}</button>
 				<span></span>
 			</div>
 
-			<!-- Data rows -->
 			{#if view.level === 'projects'}
 				{#if filteredProjects.length === 0}
 					<div class="px-4 py-8 text-surface-500 text-sm text-center">{search ? 'No match' : 'No data'}</div>
@@ -340,7 +341,7 @@
 						<span class="text-right {proj.errorCount > 0 ? 'text-amber-400' : 'text-surface-500'}">{proj.errorCount}</span>
 						<span class="text-right hidden sm:block {proj.loopCount > 0 ? 'text-red-400' : 'text-surface-500'}">{proj.loopCount}</span>
 						<span class="text-right text-surface-400">{proj.sessionCount}</span>
-						<span class="text-right hidden sm:block {difficultyColor(proj.topFiles[0]?.difficultyScore || 0)}">{proj.topFiles[0]?.difficultyScore || '—'}</span>
+						<span class="text-right hidden sm:block {difficultyColor(proj.topFiles[0]?.difficultyScore || 0)}">{proj.topFiles[0]?.difficultyScore || '\u2014'}</span>
 						<span class="text-right text-surface-600">&#x203A;</span>
 					</button>
 				{/each}
@@ -352,7 +353,7 @@
 						<span class="text-right {dir.errors > 0 ? 'text-amber-400' : 'text-surface-500'}">{dir.errors}</span>
 						<span class="text-right hidden sm:block {dir.loops > 0 ? 'text-red-400' : 'text-surface-500'}">{dir.loops}</span>
 						<span class="text-right text-surface-400">{dir.fileCount}</span>
-						<span class="text-right hidden sm:block text-surface-500">—</span>
+						<span class="text-right hidden sm:block text-surface-500">\u2014</span>
 						<span class="text-right text-surface-600">&#x203A;</span>
 					</button>
 				{/each}
@@ -376,7 +377,6 @@
 		</div>
 
 		{#if totalCount > 0 && view.level !== 'file'}
-		<!-- Footer -->
 			<div class="px-4 py-2 border-t border-surface-800 text-[10px] text-surface-500">
 				{#if hasMore}
 					{visibleCount} of {totalCount}
@@ -412,7 +412,6 @@
 			</div>
 		</div>
 	{/if}
-
 </div>
 
 <style>

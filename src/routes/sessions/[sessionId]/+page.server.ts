@@ -6,6 +6,7 @@ import { CLAUDE_DIR } from '$lib/server/config';
 import { readdir, access } from 'fs/promises';
 import { join } from 'path';
 import type { ProviderType } from '$lib/server/providers/types';
+import { findRelatedCommits } from '$lib/server/git-integration';
 
 function decodeProjectName(dirName: string): string {
 	return dirName.replace(/-/g, '/').replace(/^\//, '');
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const provider = (url.searchParams.get('provider') || 'claude-code') as ProviderType;
 
 	// Non-Claude-Code sessions: route through provider with metadata
-	if (provider === 'cursor' || provider === 'windsurf') {
+	if (provider !== 'claude-code') {
 		const meta: Record<string, string> = {};
 		for (const [key, value] of url.searchParams.entries()) {
 			if (key !== 'provider') meta[key] = value;
@@ -24,7 +25,13 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 		try {
 			const timeline = await parseSessionByProvider(sessionId, provider, meta);
-			return { timeline };
+			const commits = await findRelatedCommits(
+				meta.project || timeline.summary.project,
+				timeline.summary.startedAt,
+				timeline.summary.lastActiveAt,
+				timeline.events
+			).catch(() => []);
+			return { timeline, commits };
 		} catch (e) {
 			throw error(500, `Failed to parse ${provider} session: ${e instanceof Error ? e.message : 'Unknown error'}`);
 		}
@@ -61,7 +68,16 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	try {
 		const timeline = await parseSession(filePath, sessionId, project);
-		return { timeline };
+
+		// Find related git commits (non-blocking)
+		const commits = await findRelatedCommits(
+			project,
+			timeline.summary.startedAt,
+			timeline.summary.lastActiveAt,
+			timeline.events
+		).catch(() => []);
+
+		return { timeline, commits };
 	} catch (e) {
 		throw error(500, `Failed to parse session: ${e instanceof Error ? e.message : 'Unknown error'}`);
 	}

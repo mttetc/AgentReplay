@@ -64,12 +64,10 @@ export async function parseSession(
 	}
 
 	// Filter out entries we don't care about
-	const filtered = entries.filter(
-		(e) =>
-			e.type !== 'progress' &&
-			e.type !== 'file-history-snapshot' &&
-			(e as Record<string, unknown>).type !== 'queue-operation'
-	);
+	const filtered = entries.filter((e) => {
+		const t: string = e.type;
+		return t !== 'progress' && t !== 'file-history-snapshot' && t !== 'queue-operation';
+	});
 
 	// Step 1: Reassemble assistant turns by message.id
 	const assistantTurns = new Map<string, AssistantTurn>();

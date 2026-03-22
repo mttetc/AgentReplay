@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createHighlighter, type Highlighter } from 'shiki';
+	import { createHighlighter, type Highlighter, type BundledLanguage } from 'shiki';
 
 	let { content, language = 'text', maxHeight = '24rem', filePath = '' }: {
 		content: string;
@@ -11,7 +11,7 @@
 	let highlightedLines: string[] | null = $state(null);
 	let highlighter: Highlighter | null = null;
 
-	const BUNDLED_LANGS = [
+	const BUNDLED_LANGS: BundledLanguage[] = [
 		'typescript', 'javascript', 'tsx', 'jsx', 'json', 'python', 'bash',
 		'markdown', 'css', 'scss', 'html', 'svelte', 'vue', 'rust', 'go',
 		'yaml', 'toml', 'sql', 'ruby', 'java', 'kotlin', 'swift', 'c', 'cpp',
@@ -19,7 +19,7 @@
 	];
 
 	async function highlight(code: string, lang: string) {
-		if (lang === 'text' || !BUNDLED_LANGS.includes(lang)) {
+		if (lang === 'text' || !BUNDLED_LANGS.includes(lang as BundledLanguage)) {
 			highlightedLines = null;
 			return;
 		}
@@ -31,7 +31,7 @@
 				});
 			}
 			const tokens = highlighter.codeToTokens(code, {
-				lang,
+				lang: lang as BundledLanguage,
 				theme: 'github-dark-default'
 			});
 			highlightedLines = tokens.tokens.map(line =>

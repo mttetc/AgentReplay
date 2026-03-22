@@ -13,8 +13,8 @@
 
 	function buildHref(s: SessionSummary): string {
 		const base = `/sessions/${s.sessionId}`;
-		if (s.provider === 'cursor' && s.providerMeta) {
-			const params = new URLSearchParams({ provider: 'cursor', ...s.providerMeta, project: s.project });
+		if (s.provider !== 'claude-code' && s.providerMeta) {
+			const params = new URLSearchParams({ provider: s.provider, ...s.providerMeta, project: s.project });
 			return `${base}?${params}`;
 		}
 		return `${base}?project=${encodeURIComponent(s.project)}&file=${encodeURIComponent(s.filePath)}`;
@@ -23,7 +23,9 @@
 	const providerBadge: Record<string, { label: string; cls: string }> = {
 		'claude-code': { label: 'CC', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
 		'cursor': { label: 'Cursor', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
-		'windsurf': { label: 'Windsurf', cls: 'bg-teal-500/15 text-teal-300 border-teal-500/30' }
+		'windsurf': { label: 'Windsurf', cls: 'bg-teal-500/15 text-teal-300 border-teal-500/30' },
+		'aider': { label: 'Aider', cls: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
+		'copilot': { label: 'Copilot', cls: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' }
 	};
 </script>
 

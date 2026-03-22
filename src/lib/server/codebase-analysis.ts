@@ -5,6 +5,11 @@ import type { ProviderType } from './providers/types';
 import type { TimelineEvent, ToolCallEvent } from '$lib/types/timeline';
 import { shortPath } from '$lib/utils/format';
 
+function formatCostRaw(cost: number): string {
+	if (cost < 0.01) return '<$0.01';
+	return `$${cost.toFixed(2)}`;
+}
+
 export interface FileInsight {
 	path: string;
 	shortPath: string;
@@ -84,6 +89,29 @@ export interface FileSessionLink {
 	errors: number;
 }
 
+export interface TrendDataPoint {
+	date: string;
+	cost: number;
+	errors: number;
+	sessions: number;
+	loops: number;
+}
+
+export interface Insights {
+	/** Most expensive single session */
+	costliestSession: { slug: string; sessionId: string; project: string; cost: number } | null;
+	/** File with highest difficulty score */
+	hardestFile: { path: string; difficultyScore: number; recommendation: string } | null;
+	/** Cost trend: up, down, flat */
+	costTrend: { direction: 'up' | 'down' | 'flat'; pctChange: number };
+	/** One-liner headline */
+	headline: string;
+	/** Average cost per session */
+	avgCostPerSession: number;
+	/** Average errors per session */
+	avgErrorsPerSession: number;
+}
+
 export interface CodebaseAnalysis {
 	/** All files with full insight data */
 	allFiles: FileInsight[];
@@ -114,6 +142,10 @@ export interface CodebaseAnalysis {
 		/** Previous period cost for trend comparison */
 		previousPeriodCost: number;
 	};
+	/** Daily trend data for charts */
+	trends: TrendDataPoint[];
+	/** Top-level insights for onboarding wow moment */
+	insights: Insights;
 }
 
 const analysisCache = new Map<string, { data: CodebaseAnalysis; timestamp: number }>();
@@ -453,10 +485,83 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 
 	const avgDifficulty = allFiles.length > 0 ? Math.round(allFiles.reduce((s, f) => s + f.difficultyScore, 0) / allFiles.length) : 0;
 
+	// Build daily trend data
+	const dailyMap = new Map<string, TrendDataPoint>();
+	for (const session of sessionsToAnalyze) {
+		const day = session.startedAt.slice(0, 10);
+		if (!dailyMap.has(day)) dailyMap.set(day, { date: day, cost: 0, errors: 0, sessions: 0, loops: 0 });
+		const dp = dailyMap.get(day)!;
+		dp.cost += session.estimatedCost;
+		dp.sessions++;
+	}
+	// Merge error/loop data from weekly tracking
+	for (const [, wk] of weeklyMap) {
+		// Distribute weekly errors/loops to their days (approximation)
+		const day = wk.week;
+		if (dailyMap.has(day)) {
+			dailyMap.get(day)!.errors += wk.errors;
+			dailyMap.get(day)!.loops += wk.loops;
+		}
+	}
+	const trends = [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+	// Build insights
+	const costliestSession = sessionsToAnalyze.length > 0
+		? sessionsToAnalyze.reduce((max, s) => s.estimatedCost > max.estimatedCost ? s : max, sessionsToAnalyze[0])
+		: null;
+
+	const sortedFiles = [...allFiles].sort((a, b) => b.difficultyScore - a.difficultyScore);
+	const hardestFile = sortedFiles.length > 0 ? sortedFiles[0] : null;
+
+	const pctChange = previousPeriodCost > 0
+		? ((totalCost - previousPeriodCost) / previousPeriodCost) * 100
+		: 0;
+	const costTrend = {
+		direction: (Math.abs(pctChange) < 5 ? 'flat' : pctChange > 0 ? 'up' : 'down') as 'up' | 'down' | 'flat',
+		pctChange: Math.round(pctChange)
+	};
+
+	const avgCostPerSession = sessionsAnalyzed > 0 ? totalCost / sessionsAnalyzed : 0;
+	const avgErrorsPerSession = sessionsAnalyzed > 0 ? totalErrors / sessionsAnalyzed : 0;
+
+	// Generate headline
+	let headline = '';
+	if (sessionsAnalyzed === 0) {
+		headline = 'No sessions found. Run some AI coding sessions to see insights.';
+	} else if (costTrend.direction === 'up' && Math.abs(costTrend.pctChange) > 20) {
+		headline = `Spending is up ${costTrend.pctChange}% vs last period — ${formatCostRaw(totalCost)} across ${sessionsAnalyzed} sessions.`;
+	} else if (costTrend.direction === 'down' && Math.abs(costTrend.pctChange) > 20) {
+		headline = `Spending is down ${Math.abs(costTrend.pctChange)}% — getting more efficient.`;
+	} else if (totalLoops > 3) {
+		headline = `${totalLoops} edit loops detected — some files are causing the agent to spin.`;
+	} else if (totalErrors > sessionsAnalyzed * 2) {
+		headline = `High error rate (${totalErrors} errors across ${sessionsAnalyzed} sessions) — check the patterns below.`;
+	} else {
+		headline = `${sessionsAnalyzed} sessions analyzed, ${formatCostRaw(totalCost)} spent. ${wastefulSessions.length > 0 ? `${wastefulSessions.length} sessions had waste.` : 'Clean run overall.'}`;
+	}
+
+	const insights: Insights = {
+		costliestSession: costliestSession ? {
+			slug: costliestSession.slug,
+			sessionId: costliestSession.sessionId,
+			project: costliestSession.project,
+			cost: costliestSession.estimatedCost
+		} : null,
+		hardestFile: hardestFile ? {
+			path: hardestFile.path,
+			difficultyScore: hardestFile.difficultyScore,
+			recommendation: hardestFile.recommendation
+		} : null,
+		costTrend,
+		headline,
+		avgCostPerSession,
+		avgErrorsPerSession
+	};
+
 	const analysis: CodebaseAnalysis = {
-		allFiles: [...allFiles].sort((a, b) => b.difficultyScore - a.difficultyScore),
+		allFiles: sortedFiles,
 		projects,
-		hardestFiles: [...allFiles].sort((a, b) => b.difficultyScore - a.difficultyScore).slice(0, 20),
+		hardestFiles: sortedFiles.slice(0, 20),
 		wastefulSessions: wastefulSessions.sort((a, b) => b.wastedCost - a.wastedCost).slice(0, 20),
 		patterns,
 		recentSessions,
@@ -464,7 +569,9 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			totalFiles: fileMap.size, totalCost, totalErrors, totalLoops,
 			estimatedWaste: wastefulSessions.reduce((s, w) => s + w.wastedCost, 0),
 			sessionsAnalyzed, avgDifficulty, previousPeriodCost
-		}
+		},
+		trends,
+		insights
 	};
 
 	analysisCache.set(cacheKey, { data: analysis, timestamp: Date.now() });

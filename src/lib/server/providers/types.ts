@@ -1,6 +1,6 @@
 import type { SessionSummary, SessionTimeline } from '$lib/types/timeline';
 
-export type ProviderType = 'claude-code' | 'cursor' | 'windsurf';
+export type ProviderType = 'claude-code' | 'cursor' | 'windsurf' | 'aider' | 'copilot';
 
 export interface SessionProvider {
 	type: ProviderType;

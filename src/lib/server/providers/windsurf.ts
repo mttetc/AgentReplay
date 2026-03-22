@@ -501,6 +501,7 @@ function buildTimeline(
 		version: '',
 		eventCount: events.length,
 		toolCallCount,
+		errorCount: 0,
 		inputTokens,
 		outputTokens,
 		estimatedCost: estimateCost(model, inputTokens, outputTokens),

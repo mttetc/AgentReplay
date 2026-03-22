@@ -3,11 +3,15 @@ import type { SessionSummary, SessionTimeline } from '$lib/types/timeline';
 import { ClaudeCodeProvider } from './claude-code';
 import { CursorProvider } from './cursor';
 import { WindsurfProvider } from './windsurf';
+import { AiderProvider } from './aider';
+import { CopilotProvider } from './copilot';
 
 const providers: SessionProvider[] = [
 	new ClaudeCodeProvider(),
 	new CursorProvider(),
-	new WindsurfProvider()
+	new WindsurfProvider(),
+	new AiderProvider(),
+	new CopilotProvider()
 ];
 
 const providerMap = new Map<ProviderType, SessionProvider>(

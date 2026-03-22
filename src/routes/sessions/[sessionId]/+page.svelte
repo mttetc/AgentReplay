@@ -1,6 +1,8 @@
 <script lang="ts">
-	import type { EventType, TimelineEvent } from '$lib/types/timeline';
+	import type { EventType, TimelineEvent, SessionTimeline } from '$lib/types/timeline';
+	import type { GitCommit } from '$lib/server/git-integration';
 	import { toMarkdown, toJSON, downloadFile } from '$lib/utils/export';
+	import { toStaticHTML } from '$lib/utils/export-html';
 	import { browser } from '$app/environment';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import Timeline from '../../../components/Timeline.svelte';
@@ -9,8 +11,9 @@
 	import StatsBar from '../../../components/StatsBar.svelte';
 	import FileTree from '../../../components/FileTree.svelte';
 	import { getSessionAnnotations } from '$lib/stores/annotations.svelte';
+	import GitCommits from '../../../components/GitCommits.svelte';
 
-	let { data } = $props();
+	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[] } } = $props();
 
 	let sessionId = $derived(data.timeline.summary.sessionId);
 	let annotatedEventIds = $derived(new Set(getSessionAnnotations(sessionId).keys()));
@@ -243,6 +246,13 @@
 		showExportMenu = false;
 	}
 
+	function downloadHTMLFile() {
+		const html = toStaticHTML(data.timeline);
+		const slug = data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8);
+		downloadFile(html, `${slug}.html`, 'text/html');
+		showExportMenu = false;
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
@@ -317,6 +327,10 @@
 					>
 						<div class="text-[10px] text-surface-500 uppercase tracking-wider mb-2">Download</div>
 						<div class="flex gap-2 mb-3">
+							<button onclick={downloadHTMLFile} class="flex-1 py-3 bg-surface-800 border border-surface-700 rounded-lg text-center hover:border-surface-600 transition-colors">
+								<div class="text-surface-200 font-semibold text-sm" style="font-family: 'JetBrains Mono', monospace;">.html</div>
+								<div class="text-[10px] text-surface-500 mt-0.5">Shareable</div>
+							</button>
 							<button onclick={downloadMarkdownFile} class="flex-1 py-3 bg-surface-800 border border-surface-700 rounded-lg text-center hover:border-surface-600 transition-colors">
 								<div class="text-surface-200 font-semibold text-sm" style="font-family: 'JetBrains Mono', monospace;">.md</div>
 								<div class="text-[10px] text-surface-500 mt-0.5">Markdown</div>
@@ -334,6 +348,7 @@
 			</div>
 		</div>
 		<StatsBar summary={data.timeline.summary} />
+		<GitCommits commits={data.commits} />
 		<PlaybackControls
 			currentIndex={selectedIndex}
 			totalEvents={data.timeline.events.length}

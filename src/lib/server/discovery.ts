@@ -86,7 +86,8 @@ async function buildSummary(
 			continue;
 		}
 
-		if (entry.type === 'progress' || (entry as Record<string, unknown>).type === 'queue-operation')
+		const entryType: string = entry.type;
+		if (entryType === 'progress' || entryType === 'queue-operation')
 			continue;
 
 		if (entry.type === 'user') {
