@@ -22,6 +22,7 @@ export function toStaticHTML(timeline: SessionTimeline): string {
 	<div class="header-left">
 		<span class="logo">agent<span class="accent">replay</span></span>
 		<span class="badge">${escapeHtml(shortModel(s.model))}</span>
+		${s.gitBranch ? `<span class="badge">${escapeHtml(s.gitBranch)}</span>` : ''}
 		<span class="meta">${escapeHtml(s.project)}</span>
 	</div>
 	<div class="header-right">
@@ -33,6 +34,7 @@ export function toStaticHTML(timeline: SessionTimeline): string {
 	<div class="stat"><span class="stat-label">Events</span><span class="stat-value">${s.eventCount}</span></div>
 	<div class="stat"><span class="stat-label">Tool calls</span><span class="stat-value">${s.toolCallCount}</span></div>
 	<div class="stat"><span class="stat-label">Tokens</span><span class="stat-value">${formatTokens(s.inputTokens)}in / ${formatTokens(s.outputTokens)}out</span></div>
+	${s.cacheReadTokens > 0 ? `<div class="stat"><span class="stat-label">Cache</span><span class="stat-value">${formatTokens(s.cacheReadTokens)}tokens</span></div>` : ''}
 	<div class="stat"><span class="stat-label">Cost</span><span class="stat-value cost">${formatCost(s.estimatedCost)}</span></div>
 </div>
 <h1>${escapeHtml(s.slug || s.sessionId.slice(0, 8))}</h1>

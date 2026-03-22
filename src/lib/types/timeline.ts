@@ -90,6 +90,7 @@ export interface SessionSummary {
 	toolCallCount: number;
 	inputTokens: number;
 	outputTokens: number;
+	cacheReadTokens: number;
 	estimatedCost: number;
 	/** Number of tool call errors */
 	errorCount: number;
@@ -99,6 +100,10 @@ export interface SessionSummary {
 	provider: ProviderType;
 	/** Provider-specific metadata for routing */
 	providerMeta?: Record<string, string>;
+	/** Git branch active during the session */
+	gitBranch?: string;
+	/** Working directory of the session */
+	cwd?: string;
 }
 
 export interface SessionTimeline {

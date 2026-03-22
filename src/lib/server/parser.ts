@@ -25,6 +25,7 @@ interface AssistantTurn {
 	blocks: RawContentBlock[];
 	inputTokens: number;
 	outputTokens: number;
+	cacheReadTokens: number;
 }
 
 /**
@@ -93,7 +94,8 @@ export async function parseSession(
 					model: aEntry.message.model || '',
 					blocks: [],
 					inputTokens: 0,
-					outputTokens: 0
+					outputTokens: 0,
+					cacheReadTokens: 0
 				});
 			}
 
@@ -114,8 +116,8 @@ export async function parseSession(
 			// Accumulate usage
 			const usage = aEntry.message.usage;
 			if (usage) {
-				turn.inputTokens +=
-					(usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+				turn.inputTokens += usage.input_tokens || 0;
+				turn.cacheReadTokens += usage.cache_read_input_tokens || 0;
 				turn.outputTokens += usage.output_tokens || 0;
 			}
 
@@ -160,8 +162,11 @@ export async function parseSession(
 	let slug = '';
 	let version = '';
 	let model = '';
+	let gitBranch = '';
+	let cwd = '';
 	let totalInputTokens = 0;
 	let totalOutputTokens = 0;
+	let totalCacheReadTokens = 0;
 	let startedAt = '';
 	let lastActiveAt = '';
 
@@ -172,6 +177,8 @@ export async function parseSession(
 			lastActiveAt = userEntry.timestamp;
 			if (userEntry.slug && !slug) slug = userEntry.slug;
 			if (userEntry.version && !version) version = userEntry.version;
+			if (userEntry.gitBranch && !gitBranch) gitBranch = userEntry.gitBranch;
+			if (userEntry.cwd && !cwd) cwd = userEntry.cwd;
 
 			const rawContent = userEntry.message.content;
 			// Extract user text (skip tool_result blocks, those are matched to tool_calls)
@@ -201,6 +208,7 @@ export async function parseSession(
 			if (!model && turn.model) model = turn.model;
 			totalInputTokens += turn.inputTokens;
 			totalOutputTokens += turn.outputTokens;
+			totalCacheReadTokens += turn.cacheReadTokens;
 			lastActiveAt = turn.timestamp;
 			const turnTokens = (turn.inputTokens > 0 || turn.outputTokens > 0)
 				? { input: turn.inputTokens, output: turn.outputTokens }
@@ -264,9 +272,12 @@ export async function parseSession(
 		errorCount: events.filter((e) => e.data.eventType === 'tool_call' && e.data.result?.isError).length,
 		inputTokens: totalInputTokens,
 		outputTokens: totalOutputTokens,
-		estimatedCost: estimateCost(model, totalInputTokens, totalOutputTokens),
+		cacheReadTokens: totalCacheReadTokens,
+		estimatedCost: estimateCost(model, totalInputTokens, totalOutputTokens, totalCacheReadTokens),
 		filePath,
-		provider: 'claude-code'
+		provider: 'claude-code',
+		...(gitBranch && { gitBranch }),
+		...(cwd && { cwd })
 	};
 
 	const result = { summary, events };

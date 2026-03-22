@@ -44,6 +44,10 @@
 			<span class="text-surface-400">in</span>
 			<span class="text-blue-400">{formatNumber(summary.outputTokens)}</span>
 			<span class="text-surface-400">out</span>
+			{#if summary.cacheReadTokens > 0}
+				<span class="text-emerald-400/70">{formatNumber(summary.cacheReadTokens)}</span>
+				<span class="text-surface-500">cache</span>
+			{/if}
 		</div>
 		<span class="stats-sep text-surface-800">|</span>
 		<!-- Cost with mini bar -->

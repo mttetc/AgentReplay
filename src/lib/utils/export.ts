@@ -1,5 +1,5 @@
 import type { SessionTimeline, TimelineEvent } from '$lib/types/timeline';
-import { formatDurationBetween, formatCost, shortModel } from './format';
+import { formatDurationBetween, formatCost, shortModel, formatNumber } from './format';
 
 /** Convert a session timeline to formatted Markdown */
 export function toMarkdown(timeline: SessionTimeline): string {
@@ -8,7 +8,7 @@ export function toMarkdown(timeline: SessionTimeline): string {
 
 	const lines: string[] = [
 		`# Session: ${s.slug || s.sessionId.slice(0, 8)}`,
-		`**Project**: ${s.project} | **Model**: ${shortModel(s.model)} | **Cost**: ${formatCost(s.estimatedCost)} | **Duration**: ${duration} | **Events**: ${s.eventCount}`,
+		`**Project**: ${s.project} | **Model**: ${shortModel(s.model)} | **Cost**: ${formatCost(s.estimatedCost)}${s.cacheReadTokens > 0 ? ` | **Cache**: ${formatNumber(s.cacheReadTokens)} tokens` : ''}${s.gitBranch ? ` | **Branch**: ${s.gitBranch}` : ''} | **Duration**: ${duration} | **Events**: ${s.eventCount}`,
 		'',
 		'---',
 		''
@@ -101,7 +101,10 @@ export function toJSON(timeline: SessionTimeline): string {
 			inputTokens: summary.inputTokens,
 			outputTokens: summary.outputTokens,
 			estimatedCost: summary.estimatedCost,
-			provider: summary.provider
+			cacheReadTokens: summary.cacheReadTokens,
+			provider: summary.provider,
+			...(summary.gitBranch ? { gitBranch: summary.gitBranch } : {}),
+			...(summary.cwd ? { cwd: summary.cwd } : {})
 		},
 		events: events.map((e) => ({
 			timestamp: e.timestamp,

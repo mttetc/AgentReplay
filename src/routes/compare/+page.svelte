@@ -25,6 +25,8 @@
 		{ label: 'Tool calls', valueA: String(a.summary.toolCallCount), valueB: String(b.summary.toolCallCount), rawA: a.summary.toolCallCount, rawB: b.summary.toolCallCount },
 		{ label: 'Input tokens', valueA: formatNumber(a.summary.inputTokens), valueB: formatNumber(b.summary.inputTokens), rawA: a.summary.inputTokens, rawB: b.summary.inputTokens },
 		{ label: 'Output tokens', valueA: formatNumber(a.summary.outputTokens), valueB: formatNumber(b.summary.outputTokens), rawA: a.summary.outputTokens, rawB: b.summary.outputTokens },
+		{ label: 'Cache tokens', valueA: formatNumber(a.summary.cacheReadTokens), valueB: formatNumber(b.summary.cacheReadTokens), rawA: a.summary.cacheReadTokens, rawB: b.summary.cacheReadTokens },
+		{ label: 'Errors', valueA: String(a.summary.errorCount), valueB: String(b.summary.errorCount), rawA: a.summary.errorCount, rawB: b.summary.errorCount },
 		{ label: 'Cost', valueA: formatCost(a.summary.estimatedCost), valueB: formatCost(b.summary.estimatedCost), rawA: a.summary.estimatedCost, rawB: b.summary.estimatedCost }
 	]);
 
@@ -98,6 +100,9 @@
 					<span>{a.summary.toolCallCount} tools</span>
 					<span>{formatCost(a.summary.estimatedCost)}</span>
 				</div>
+				{#if a.summary.gitBranch}
+					<div class="text-[10px] text-surface-500 font-mono mt-1 truncate">{a.summary.gitBranch}</div>
+				{/if}
 			</a>
 
 			<!-- Session B -->
@@ -114,6 +119,9 @@
 					<span>{b.summary.toolCallCount} tools</span>
 					<span>{formatCost(b.summary.estimatedCost)}</span>
 				</div>
+				{#if b.summary.gitBranch}
+					<div class="text-[10px] text-surface-500 font-mono mt-1 truncate">{b.summary.gitBranch}</div>
+				{/if}
 			</a>
 		</div>
 

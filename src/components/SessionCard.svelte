@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { SessionSummary } from '$lib/types/timeline';
 	import { formatDate, formatDurationBetween, formatNumber, formatCost, shortModel } from '$lib/utils/format';
+	import SessionTags from './SessionTags.svelte';
 
-	let { session }: { session: SessionSummary } = $props();
+	let { session, previousSessionId }: { session: SessionSummary; previousSessionId?: string } = $props();
 
 	function getModelBadge(model: string): string {
 		if (model.includes('opus')) return 'bg-amber-500/15 text-amber-300 border border-amber-500/30';
@@ -29,46 +30,65 @@
 	};
 </script>
 
-<a
-	href={buildHref(session)}
-	class="block bg-surface-950 border border-surface-800 rounded-lg p-4 hover:border-surface-600 hover:bg-surface-900/80 transition-all group"
+<div
+	class="bg-surface-950 border border-surface-800 rounded-lg p-4 hover:border-surface-600 hover:bg-surface-900/80 transition-all group"
 	style="container-type: inline-size;"
 >
-	<div class="flex items-start justify-between gap-3 mb-3">
-		<div class="min-w-0">
-			<h3 class="text-surface-100 font-medium truncate group-hover:text-white transition-colors">
-				{session.slug || session.sessionId.slice(0, 8)}
-			</h3>
-			<p class="text-surface-500 text-xs mt-0.5 truncate">{session.project}</p>
+	<a href={buildHref(session)} class="block">
+		<div class="flex items-start justify-between gap-3 mb-3">
+			<div class="min-w-0">
+				<h3 class="text-surface-100 font-medium truncate group-hover:text-white transition-colors">
+					{session.slug || session.sessionId.slice(0, 8)}
+				</h3>
+				<p class="text-surface-500 text-xs mt-0.5 truncate">{session.project}</p>
+			</div>
+			<span class="text-surface-500 text-xs whitespace-nowrap">{formatDate(session.startedAt)}</span>
 		</div>
-		<span class="text-surface-500 text-xs whitespace-nowrap">{formatDate(session.startedAt)}</span>
-	</div>
 
-	<div class="session-card-meta flex items-center gap-2 text-xs text-surface-400 flex-wrap">
-		{#if session.provider && session.provider !== 'claude-code'}
-			<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {providerBadge[session.provider]?.cls || 'bg-surface-800 text-surface-400 border-surface-700'}">
-				{providerBadge[session.provider]?.label || session.provider}
+		<div class="session-card-meta flex items-center gap-2 text-xs text-surface-400 flex-wrap">
+			{#if session.provider && session.provider !== 'claude-code'}
+				<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {providerBadge[session.provider]?.cls || 'bg-surface-800 text-surface-400 border-surface-700'}">
+					{providerBadge[session.provider]?.label || session.provider}
+				</span>
+			{/if}
+			{#if session.gitBranch}
+				<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-surface-400 bg-surface-800/50">
+					{session.gitBranch}
+				</span>
+			{/if}
+			<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium {getModelBadge(session.model)}">
+				{shortModel(session.model)}
 			</span>
-		{/if}
-		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium {getModelBadge(session.model)}">
-			{shortModel(session.model)}
-		</span>
-		<span class="meta-sep text-surface-700">|</span>
-		<span class="text-cyan-400/80">{session.toolCallCount} tools</span>
-		{#if session.errorCount > 0}
 			<span class="meta-sep text-surface-700">|</span>
-			<span class="text-red-400">{session.errorCount} err</span>
-		{/if}
-		<span class="meta-sep text-surface-700">|</span>
-		<span>{formatDurationBetween(session.startedAt, session.lastActiveAt)}</span>
-		<span class="meta-sep text-surface-700">|</span>
-		<span>{formatNumber(session.outputTokens)} out</span>
-		<span
-			class="ml-auto {session.estimatedCost > 0 ? 'text-emerald-400' : 'text-surface-500'}"
-			title="Estimated API cost"
-		>{formatCost(session.estimatedCost)}</span>
-	</div>
-</a>
+			<span class="text-cyan-400/80">{session.toolCallCount} tools</span>
+			{#if session.errorCount > 0}
+				<span class="meta-sep text-surface-700">|</span>
+				<span class="text-red-400">{session.errorCount} err</span>
+			{/if}
+			<span class="meta-sep text-surface-700">|</span>
+			<span>{formatDurationBetween(session.startedAt, session.lastActiveAt)}</span>
+			<span class="meta-sep text-surface-700">|</span>
+			<span>{formatNumber(session.outputTokens)} out</span>
+			<span
+				class="ml-auto {session.estimatedCost > 0 ? 'text-emerald-400' : 'text-surface-500'}"
+				title="Estimated API cost"
+			>{formatCost(session.estimatedCost)}</span>
+		</div>
+
+		<div class="mt-2">
+			<SessionTags sessionId={session.sessionId} readonly />
+		</div>
+	</a>
+
+	{#if previousSessionId}
+		<a
+			href="/compare?a={session.sessionId}&b={previousSessionId}"
+			class="mt-2 inline-flex items-center gap-1 text-[10px] text-surface-500 hover:text-blue-400 transition-colors"
+		>
+			&#x2194; Compare with previous
+		</a>
+	{/if}
+</div>
 
 <style>
 	@container (max-width: 360px) {

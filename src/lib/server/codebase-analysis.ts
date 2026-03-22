@@ -112,6 +112,14 @@ export interface Insights {
 	avgErrorsPerSession: number;
 }
 
+export interface ToolStat {
+	toolName: string;
+	callCount: number;
+	errorCount: number;
+	errorRate: number; // 0-100
+	avgTokensPerCall: number; // 0 if no token data
+}
+
 export interface CodebaseAnalysis {
 	/** All files with full insight data */
 	allFiles: FileInsight[];
@@ -146,6 +154,8 @@ export interface CodebaseAnalysis {
 	trends: TrendDataPoint[];
 	/** Top-level insights for onboarding wow moment */
 	insights: Insights;
+	/** Per-tool usage statistics */
+	toolStats: ToolStat[];
 }
 
 const analysisCache = new Map<string, { data: CodebaseAnalysis; timestamp: number }>();
@@ -169,6 +179,7 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 	let totalErrors = 0;
 	let totalLoops = 0;
 	let sessionsAnalyzed = 0;
+	const toolStatsMap = new Map<string, { calls: number; errors: number; totalTokens: number }>();
 
 	const sessionsToAnalyze = sessions.slice(0, 100);
 
@@ -212,6 +223,16 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			if (event.data.eventType !== 'tool_call') continue;
 
 			const tc = event.data as ToolCallEvent;
+
+			// Aggregate per-tool stats across all sessions
+			if (!toolStatsMap.has(tc.toolName)) {
+				toolStatsMap.set(tc.toolName, { calls: 0, errors: 0, totalTokens: 0 });
+			}
+			const ts = toolStatsMap.get(tc.toolName)!;
+			ts.calls++;
+			if (tc.result?.isError) ts.errors++;
+			if (event.tokens) ts.totalTokens += event.tokens.input + event.tokens.output;
+
 			const input = tc.input as Record<string, unknown>;
 			if (!['Read', 'Write', 'Edit'].includes(tc.toolName)) continue;
 			const filePath = (input.file_path as string) || '';
@@ -558,6 +579,17 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		avgErrorsPerSession
 	};
 
+	// Build per-tool stats sorted by call count descending
+	const toolStats: ToolStat[] = [...toolStatsMap.entries()]
+		.map(([toolName, s]) => ({
+			toolName,
+			callCount: s.calls,
+			errorCount: s.errors,
+			errorRate: s.calls > 0 ? Math.round((s.errors / s.calls) * 100) : 0,
+			avgTokensPerCall: s.calls > 0 ? Math.round(s.totalTokens / s.calls) : 0
+		}))
+		.sort((a, b) => b.callCount - a.callCount);
+
 	const analysis: CodebaseAnalysis = {
 		allFiles: sortedFiles,
 		projects,
@@ -571,7 +603,8 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			sessionsAnalyzed, avgDifficulty, previousPeriodCost
 		},
 		trends,
-		insights
+		insights,
+		toolStats
 	};
 
 	analysisCache.set(cacheKey, { data: analysis, timestamp: Date.now() });

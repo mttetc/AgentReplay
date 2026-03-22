@@ -14,6 +14,7 @@ const summary: SessionSummary = {
 	toolCallCount: 1,
 	inputTokens: 1000,
 	outputTokens: 500,
+	cacheReadTokens: 0,
 	estimatedCost: 0.0105,
 	errorCount: 0,
 	filePath: '/tmp/test.jsonl',

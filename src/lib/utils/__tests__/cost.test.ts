@@ -30,4 +30,21 @@ describe('estimateCost', () => {
 		const cost = estimateCost('claude-opus-4-6', 1_000_000, 500_000);
 		expect(cost).toBe((1_000_000 * 15 + 500_000 * 75) / 1_000_000);
 	});
+
+	it('calculates cost with cache read tokens at reduced rate', () => {
+		const cost = estimateCost('claude-sonnet-4-5-20250929', 1000, 500, 2000);
+		expect(cost).toBe((1000 * 3 + 500 * 15 + 2000 * 0.3) / 1_000_000);
+	});
+
+	it('cache tokens are much cheaper than regular input', () => {
+		const costAsInput = estimateCost('claude-sonnet-4-5-20250929', 1000, 0);
+		const costAsCache = estimateCost('claude-sonnet-4-5-20250929', 0, 0, 1000);
+		expect(costAsCache).toBeCloseTo(costAsInput * 0.1, 10);
+	});
+
+	it('handles zero cache tokens explicitly', () => {
+		const withoutArg = estimateCost('claude-opus-4-6', 1000, 500);
+		const withZero = estimateCost('claude-opus-4-6', 1000, 500, 0);
+		expect(withZero).toBe(withoutArg);
+	});
 });

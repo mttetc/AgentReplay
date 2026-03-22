@@ -12,6 +12,7 @@
 	import FileTree from '../../../components/FileTree.svelte';
 	import { getSessionAnnotations } from '$lib/stores/annotations.svelte';
 	import GitCommits from '../../../components/GitCommits.svelte';
+	import SessionTags from '../../../components/SessionTags.svelte';
 
 	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[] } } = $props();
 
@@ -309,6 +310,16 @@
 				{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)}
 			</h1>
 			<span class="text-surface-400 text-xs truncate hidden sm:inline">{data.timeline.summary.project}</span>
+			{#if data.timeline.summary.gitBranch}
+				<span class="text-surface-400 text-xs font-mono bg-surface-800/50 px-2 py-0.5 rounded">
+					{data.timeline.summary.gitBranch}
+				</span>
+			{/if}
+			{#if data.timeline.summary.cwd}
+				<span class="text-surface-500 text-xs truncate hidden sm:inline" title={data.timeline.summary.cwd}>
+					{data.timeline.summary.cwd}
+				</span>
+			{/if}
 
 			<!-- Export -->
 			<div class="relative">
@@ -348,6 +359,9 @@
 			</div>
 		</div>
 		<StatsBar summary={data.timeline.summary} />
+		<div class="py-1">
+			<SessionTags sessionId={data.timeline.summary.sessionId} />
+		</div>
 		<GitCommits commits={data.commits} />
 		<PlaybackControls
 			currentIndex={selectedIndex}

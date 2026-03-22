@@ -70,10 +70,13 @@ async function buildSummary(
 	let slug = '';
 	let model = '';
 	let version = '';
+	let gitBranch = '';
+	let cwd = '';
 	let startedAt = '';
 	let lastActiveAt = '';
 	let inputTokens = 0;
 	let outputTokens = 0;
+	let cacheReadTokens = 0;
 	let toolCallCount = 0;
 	let errorCount = 0;
 	let eventCount = 0;
@@ -96,6 +99,8 @@ async function buildSummary(
 			if (userEntry.timestamp) lastActiveAt = userEntry.timestamp;
 			if (userEntry.slug && !slug) slug = userEntry.slug;
 			if (userEntry.version && !version) version = userEntry.version;
+			if (userEntry.gitBranch && !gitBranch) gitBranch = userEntry.gitBranch;
+			if (userEntry.cwd && !cwd) cwd = userEntry.cwd;
 			// Count tool errors from tool_result blocks
 			const userContent = userEntry.message?.content;
 			if (Array.isArray(userContent)) {
@@ -116,7 +121,8 @@ async function buildSummary(
 
 			const usage = assistantEntry.message.usage;
 			if (usage) {
-				inputTokens += (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+				inputTokens += usage.input_tokens || 0;
+				cacheReadTokens += usage.cache_read_input_tokens || 0;
 				outputTokens += usage.output_tokens || 0;
 			}
 
@@ -145,8 +151,11 @@ async function buildSummary(
 		errorCount,
 		inputTokens,
 		outputTokens,
-		estimatedCost: estimateCost(model, inputTokens, outputTokens),
+		cacheReadTokens,
+		estimatedCost: estimateCost(model, inputTokens, outputTokens, cacheReadTokens),
 		filePath,
-		provider: 'claude-code'
+		provider: 'claude-code',
+		...(gitBranch && { gitBranch }),
+		...(cwd && { cwd })
 	};
 }
