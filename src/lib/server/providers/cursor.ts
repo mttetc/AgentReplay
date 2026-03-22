@@ -6,14 +6,28 @@ import type { SessionProvider } from './types';
 import type { SessionSummary, SessionTimeline, TimelineEvent, TimelineEventData } from '$lib/types/timeline';
 import { estimateCost } from '$lib/utils/cost';
 
-const CURSOR_STORAGE = join(
-	homedir(),
-	'Library',
-	'Application Support',
-	'Cursor',
-	'User',
-	'workspaceStorage'
-);
+function getCursorStoragePaths(): string[] {
+	const home = homedir();
+	const platform = process.platform;
+
+	if (platform === 'darwin') {
+		return [
+			join(home, 'Library', 'Application Support', 'Cursor', 'User', 'workspaceStorage')
+		];
+	}
+	if (platform === 'linux') {
+		return [
+			join(home, '.config', 'Cursor', 'User', 'workspaceStorage')
+		];
+	}
+	if (platform === 'win32') {
+		const appdata = process.env.APPDATA || join(home, 'AppData', 'Roaming');
+		return [
+			join(appdata, 'Cursor', 'User', 'workspaceStorage')
+		];
+	}
+	return [];
+}
 
 /** Keys known to contain AI conversation data in Cursor's state.vscdb */
 const CONVERSATION_KEY_PATTERNS = [
@@ -164,16 +178,18 @@ export class CursorProvider implements SessionProvider {
 
 	async discoverSessions(): Promise<SessionSummary[]> {
 		const sessions: SessionSummary[] = [];
+		const storagePaths = getCursorStoragePaths();
 
-		let workspaceDirs: string[];
-		try {
-			workspaceDirs = await readdir(CURSOR_STORAGE);
-		} catch {
-			return [];
-		}
+		for (const storagePath of storagePaths) {
+			let workspaceDirs: string[];
+			try {
+				workspaceDirs = await readdir(storagePath);
+			} catch {
+				continue;
+			}
 
 		for (const wsDir of workspaceDirs) {
-			const wsPath = join(CURSOR_STORAGE, wsDir);
+			const wsPath = join(storagePath, wsDir);
 			const dbPath = join(wsPath, 'state.vscdb');
 
 			try {
@@ -288,6 +304,7 @@ export class CursorProvider implements SessionProvider {
 				db.close();
 			}
 		}
+		} // end storagePath loop
 
 		sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
 		return sessions;
