@@ -1,0 +1,5 @@
+{"type":"user","uuid":"usr_030","parentUuid":null,"sessionId":"test-session-001","timestamp":"2025-01-15T10:00:00Z","message":{"role":"user","content":"Test malformed handling"},"slug":"test-project","version":"1.0.0"}
+not valid json {
+{"type":"assistant","uuid":"ast_030","parentUuid":"usr_030","sessionId":"test-session-001","timestamp":"2025-01-15T10:02:00Z","message":{"role":"assistant","id":"msg_030","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"I can still respond despite malformed lines."}],"usage":{"input_tokens":80,"output_tokens":20}}}
+{"type":"progress","data":"loading","sessionId":"test-session-001","timestamp":"2025-01-15T10:03:00Z"}
+{"type":"file-history-snapshot","messageId":"x","snapshot":{"messageId":"x","trackedFileBackups":{},"timestamp":"2025-01-15T10:04:00Z"},"isSnapshotUpdate":false}

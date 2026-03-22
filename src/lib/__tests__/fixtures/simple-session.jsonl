@@ -1,0 +1,2 @@
+{"type":"user","uuid":"usr_001","parentUuid":null,"sessionId":"test-session-001","timestamp":"2025-01-15T10:00:00Z","message":{"role":"user","content":"Hello, help me with my project"},"slug":"test-project","version":"1.0.0"}
+{"type":"assistant","uuid":"ast_001","parentUuid":"usr_001","sessionId":"test-session-001","timestamp":"2025-01-15T10:01:00Z","message":{"role":"assistant","id":"msg_001","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"I'll help you with your project."}],"usage":{"input_tokens":100,"output_tokens":50}}}

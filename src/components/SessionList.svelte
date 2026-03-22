@@ -3,6 +3,7 @@
 	import type { ProviderType } from '$lib/server/providers/types';
 	import { shortModel } from '$lib/utils/format';
 	import SessionCard from './SessionCard.svelte';
+	import EmptyState from './EmptyState.svelte';
 
 	let { sessions }: { sessions: SessionSummary[] } = $props();
 	let search = $state('');
@@ -218,11 +219,26 @@
 		{/each}
 
 		{#if filtered.length === 0}
-			<div class="text-center py-12 text-surface-500">
+			<div class="col-span-full">
 				{#if search}
-					No sessions matching "{search}"
+					<EmptyState
+						icon="search"
+						title="No matching sessions"
+						message={`No sessions found matching "${search}". Try a different search term or clear the filter.`}
+					/>
+				{:else if sessions.length === 0}
+					<EmptyState
+						icon="sessions"
+						title="No sessions found"
+						message="Agent Replay discovers sessions from Claude Code (~/.claude/projects/), Cursor, Windsurf, Copilot, and Aider. Make sure you have session data from at least one provider."
+						action={{ label: 'View Insights', href: '/' }}
+					/>
 				{:else}
-					No sessions found. Make sure Claude Code sessions exist in ~/.claude/projects/
+					<EmptyState
+						icon="inbox"
+						title="No sessions match the current filter"
+						message="Try selecting a different provider or adjusting your filters."
+					/>
 				{/if}
 			</div>
 		{/if}
