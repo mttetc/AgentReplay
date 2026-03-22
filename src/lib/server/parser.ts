@@ -263,6 +263,7 @@ export async function parseSession(
 		version,
 		eventCount: events.length,
 		toolCallCount: events.filter((e) => e.data.eventType === 'tool_call').length,
+		errorCount: events.filter((e) => e.data.eventType === 'tool_call' && e.data.result?.isError).length,
 		inputTokens: totalInputTokens,
 		outputTokens: totalOutputTokens,
 		estimatedCost: estimateCost(model, totalInputTokens, totalOutputTokens),

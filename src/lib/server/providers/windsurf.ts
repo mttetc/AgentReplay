@@ -323,6 +323,7 @@ export class WindsurfProvider implements SessionProvider {
 			version: '',
 			eventCount: messages.length,
 			toolCallCount,
+			errorCount: 0,
 			inputTokens,
 			outputTokens,
 			estimatedCost: estimateCost(model, inputTokens, outputTokens),

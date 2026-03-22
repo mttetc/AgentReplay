@@ -24,17 +24,17 @@
 				<a
 					href="/"
 					class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-						{currentPath === '/' || currentPath.startsWith('/sessions')
+						{currentPath === '/' || currentPath.startsWith('/?')
+							? 'bg-surface-800 text-surface-100'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'}"
+				>Insights</a>
+				<a
+					href="/sessions"
+					class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+						{currentPath.startsWith('/sessions') || currentPath.startsWith('/compare')
 							? 'bg-surface-800 text-surface-100'
 							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'}"
 				>Sessions</a>
-				<a
-					href="/analytics"
-					class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-						{currentPath === '/analytics'
-							? 'bg-surface-800 text-surface-100'
-							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'}"
-				>Analytics</a>
 			</div>
 			<span class="text-surface-400 text-xs hidden sm:inline ml-auto">DevTools for AI Agents</span>
 		</nav>

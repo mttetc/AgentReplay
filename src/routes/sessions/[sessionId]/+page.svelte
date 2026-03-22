@@ -291,7 +291,7 @@
 	<!-- Top bar: stats + playback + search -->
 	<div class="border-b border-surface-800 bg-surface-900/50 px-3 sm:px-4 py-2 space-y-2">
 		<div class="flex items-center gap-3">
-			<a href="/" class="text-surface-500 hover:text-blue-400 transition-colors text-xs">
+			<a href="/sessions" class="text-surface-400 hover:text-blue-400 transition-colors text-xs">
 				&#8592; Sessions
 			</a>
 			<span class="text-surface-700">|</span>
@@ -299,14 +299,6 @@
 				{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)}
 			</h1>
 			<span class="text-surface-400 text-xs truncate hidden sm:inline">{data.timeline.summary.project}</span>
-
-			<a
-				href="/analytics?session={data.timeline.summary.sessionId}"
-				class="flex items-center gap-1.5 text-blue-400 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/25 hover:bg-blue-500/20 hover:border-blue-500/40 transition-colors"
-			>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-				Analytics
-			</a>
 
 			<!-- Export -->
 			<div class="relative">

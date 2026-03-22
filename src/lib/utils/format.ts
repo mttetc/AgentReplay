@@ -82,6 +82,11 @@ export function truncate(text: string, maxLength: number): string {
 	return text.slice(0, maxLength - 1) + '…';
 }
 
+/** Shorten a file path to last 2 segments */
+export function shortPath(filePath: string): string {
+	return filePath.split('/').slice(-2).join('/');
+}
+
 /** Infer language from a file path extension */
 export function inferLanguage(filePath: string): string {
 	const ext = filePath.split('.').pop()?.toLowerCase() || '';

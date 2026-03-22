@@ -53,6 +53,10 @@
 		</span>
 		<span class="meta-sep text-surface-700">|</span>
 		<span class="text-cyan-400/80">{session.toolCallCount} tools</span>
+		{#if session.errorCount > 0}
+			<span class="meta-sep text-surface-700">|</span>
+			<span class="text-red-400">{session.errorCount} err</span>
+		{/if}
 		<span class="meta-sep text-surface-700">|</span>
 		<span>{formatDurationBetween(session.startedAt, session.lastActiveAt)}</span>
 		<span class="meta-sep text-surface-700">|</span>

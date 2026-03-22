@@ -61,7 +61,3 @@ export function setAnnotation(sessionId: string, eventId: string, text: string) 
 	store = new Map(store);
 	saveAnnotations(store);
 }
-
-export function getAnnotationCount(sessionId: string): number {
-	return store.get(sessionId)?.size || 0;
-}

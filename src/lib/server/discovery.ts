@@ -75,6 +75,7 @@ async function buildSummary(
 	let inputTokens = 0;
 	let outputTokens = 0;
 	let toolCallCount = 0;
+	let errorCount = 0;
 	let eventCount = 0;
 
 	for (const line of lines) {
@@ -94,6 +95,15 @@ async function buildSummary(
 			if (userEntry.timestamp) lastActiveAt = userEntry.timestamp;
 			if (userEntry.slug && !slug) slug = userEntry.slug;
 			if (userEntry.version && !version) version = userEntry.version;
+			// Count tool errors from tool_result blocks
+			const userContent = userEntry.message?.content;
+			if (Array.isArray(userContent)) {
+				for (const block of userContent) {
+					if (block.type === 'tool_result' && (block as { is_error?: boolean }).is_error) {
+						errorCount++;
+					}
+				}
+			}
 			eventCount++;
 		}
 
@@ -131,6 +141,7 @@ async function buildSummary(
 		version,
 		eventCount,
 		toolCallCount,
+		errorCount,
 		inputTokens,
 		outputTokens,
 		estimatedCost: estimateCost(model, inputTokens, outputTokens),

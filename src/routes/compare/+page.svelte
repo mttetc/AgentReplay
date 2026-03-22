@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SessionTimeline } from '$lib/types/timeline';
-	import { formatDurationBetween, formatNumber, formatCost, shortModel } from '$lib/utils/format';
+	import { formatDurationBetween, formatNumber, formatCost, shortModel, shortPath } from '$lib/utils/format';
 
 	let { data } = $props();
 
@@ -64,17 +64,16 @@
 	let onlyA = $derived(new Set([...filesA].filter(f => !filesB.has(f))));
 	let onlyB = $derived(new Set([...filesB].filter(f => !filesA.has(f))));
 
-	function shortPath(p: string): string { return p.split('/').slice(-2).join('/'); }
 </script>
 
 <svelte:head>
-	<title>Compare — AgentReplay</title>
+	<title>compare</title>
 </svelte:head>
 
 <div class="h-[calc(100vh-3.5rem)] flex flex-col">
 	<!-- Header (full width) -->
 	<div class="px-6 py-4 border-b border-surface-800 flex items-center gap-3 flex-shrink-0">
-		<a href="/" class="text-surface-500 hover:text-blue-400 transition-colors text-xs">&#8592; Sessions</a>
+		<a href="/sessions" class="text-surface-400 hover:text-blue-400 transition-colors text-xs">&#8592; Sessions</a>
 		<span class="text-surface-700">|</span>
 		<h1 class="text-surface-100 text-lg font-semibold" style="font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em;">
 			Session comparison

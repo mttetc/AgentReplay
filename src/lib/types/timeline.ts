@@ -91,6 +91,8 @@ export interface SessionSummary {
 	inputTokens: number;
 	outputTokens: number;
 	estimatedCost: number;
+	/** Number of tool call errors */
+	errorCount: number;
 	/** Full path to the source file */
 	filePath: string;
 	/** Which provider this session came from */
