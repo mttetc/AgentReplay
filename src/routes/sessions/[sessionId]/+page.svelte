@@ -283,7 +283,7 @@
 <svelte:window onkeydown={handleGlobalKeydown} />
 
 <svelte:head>
-	<title>{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)} — AgentReplay</title>
+	<title>{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)}</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -298,14 +298,23 @@
 			<h1 class="text-surface-100 text-sm font-medium truncate flex-1">
 				{data.timeline.summary.slug || data.timeline.summary.sessionId.slice(0, 8)}
 			</h1>
-			<span class="text-surface-600 text-xs truncate hidden sm:inline">{data.timeline.summary.project}</span>
+			<span class="text-surface-400 text-xs truncate hidden sm:inline">{data.timeline.summary.project}</span>
+
+			<a
+				href="/analytics?session={data.timeline.summary.sessionId}"
+				class="flex items-center gap-1.5 text-blue-400 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/25 hover:bg-blue-500/20 hover:border-blue-500/40 transition-colors"
+			>
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+				Analytics
+			</a>
 
 			<!-- Export -->
 			<div class="relative">
 				<button
 					onclick={() => (showExportMenu = !showExportMenu)}
-					class="text-surface-500 hover:text-surface-200 transition-colors text-xs px-2 py-1 rounded border border-surface-700 hover:border-surface-600"
+					class="flex items-center gap-1.5 text-surface-200 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-800 border border-surface-700 hover:border-surface-500 hover:text-surface-100 transition-colors"
 				>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 					{copyFeedback || 'Export'}
 				</button>
 				{#if showExportMenu}

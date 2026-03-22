@@ -2,10 +2,12 @@ import type { SessionProvider, ProviderType } from './types';
 import type { SessionSummary, SessionTimeline } from '$lib/types/timeline';
 import { ClaudeCodeProvider } from './claude-code';
 import { CursorProvider } from './cursor';
+import { WindsurfProvider } from './windsurf';
 
 const providers: SessionProvider[] = [
 	new ClaudeCodeProvider(),
-	new CursorProvider()
+	new CursorProvider(),
+	new WindsurfProvider()
 ];
 
 const providerMap = new Map<ProviderType, SessionProvider>(

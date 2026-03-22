@@ -15,18 +15,18 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const { sessionId } = params;
 	const provider = (url.searchParams.get('provider') || 'claude-code') as ProviderType;
 
-	// Cursor sessions: route through provider with metadata
-	if (provider === 'cursor') {
+	// Non-Claude-Code sessions: route through provider with metadata
+	if (provider === 'cursor' || provider === 'windsurf') {
 		const meta: Record<string, string> = {};
 		for (const [key, value] of url.searchParams.entries()) {
 			if (key !== 'provider') meta[key] = value;
 		}
 
 		try {
-			const timeline = await parseSessionByProvider(sessionId, 'cursor', meta);
+			const timeline = await parseSessionByProvider(sessionId, provider, meta);
 			return { timeline };
 		} catch (e) {
-			throw error(500, `Failed to parse Cursor session: ${e instanceof Error ? e.message : 'Unknown error'}`);
+			throw error(500, `Failed to parse ${provider} session: ${e instanceof Error ? e.message : 'Unknown error'}`);
 		}
 	}
 

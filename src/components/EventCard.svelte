@@ -111,7 +111,7 @@
 		if (d.eventType === 'thinking') return 'text-yellow-500';
 		if (d.eventType === 'tool_call') return labelColors[d.toolName] || 'text-surface-500';
 		if (d.eventType === 'compact_boundary') return 'text-orange-500';
-		return 'text-surface-600';
+		return 'text-surface-400';
 	}
 
 	function hasError(event: TimelineEvent): boolean {

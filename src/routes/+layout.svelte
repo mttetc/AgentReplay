@@ -20,7 +20,23 @@
 					<span class="text-surface-100">agent</span><span class="text-blue-500">replay</span>
 				</span>
 			</a>
-			<span class="text-surface-600 text-xs hidden sm:inline">DevTools for AI Agents</span>
+			<div class="flex items-center gap-1 ml-4">
+				<a
+					href="/"
+					class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+						{currentPath === '/' || currentPath.startsWith('/sessions')
+							? 'bg-surface-800 text-surface-100'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'}"
+				>Sessions</a>
+				<a
+					href="/analytics"
+					class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+						{currentPath === '/analytics'
+							? 'bg-surface-800 text-surface-100'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800/50'}"
+				>Analytics</a>
+			</div>
+			<span class="text-surface-400 text-xs hidden sm:inline ml-auto">DevTools for AI Agents</span>
 		</nav>
 	</header>
 

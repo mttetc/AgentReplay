@@ -11,7 +11,7 @@
 </script>
 
 {#if !event}
-	<div class="flex items-center justify-center h-full text-surface-600 text-sm">
+	<div class="flex items-center justify-center h-full text-surface-500 text-sm">
 		Select an event to view details
 	</div>
 {:else}

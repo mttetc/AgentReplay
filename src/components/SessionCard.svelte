@@ -22,7 +22,8 @@
 
 	const providerBadge: Record<string, { label: string; cls: string }> = {
 		'claude-code': { label: 'CC', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
-		'cursor': { label: 'Cursor', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' }
+		'cursor': { label: 'Cursor', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+		'windsurf': { label: 'Windsurf', cls: 'bg-teal-500/15 text-teal-300 border-teal-500/30' }
 	};
 </script>
 

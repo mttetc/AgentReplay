@@ -27,6 +27,10 @@ body {
 	-webkit-font-smoothing: antialiased;
 }
 
+button, a, [role="button"], select, summary, input[type="checkbox"], input[type="radio"] {
+	cursor: pointer;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
 	width: 6px;

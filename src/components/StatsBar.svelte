@@ -41,9 +41,9 @@
 		<span class="stats-sep text-surface-800">|</span>
 		<div class="flex items-center gap-1.5">
 			<span class="text-amber-400">{formatNumber(summary.inputTokens)}</span>
-			<span class="text-surface-600">in</span>
+			<span class="text-surface-400">in</span>
 			<span class="text-blue-400">{formatNumber(summary.outputTokens)}</span>
-			<span class="text-surface-600">out</span>
+			<span class="text-surface-400">out</span>
 		</div>
 		<span class="stats-sep text-surface-800">|</span>
 		<!-- Cost with mini bar -->

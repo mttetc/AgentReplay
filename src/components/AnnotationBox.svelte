@@ -59,7 +59,7 @@
 			</div>
 		</button>
 	{:else}
-		<button onclick={startEdit} class="text-[10px] text-surface-600 hover:text-surface-400 transition-colors">
+		<button onclick={startEdit} class="text-[10px] text-surface-500 hover:text-surface-300 transition-colors">
 			+ Add note
 		</button>
 	{/if}

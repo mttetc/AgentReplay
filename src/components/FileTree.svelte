@@ -109,7 +109,7 @@
 			<div class="text-surface-200 text-xs font-mono truncate" title={selectedFileData.path}>
 				{selectedFileData.name}
 			</div>
-			<div class="text-[10px] text-surface-600 mt-0.5 truncate">{selectedFileData.path}</div>
+			<div class="text-[10px] text-surface-400 mt-0.5 truncate">{selectedFileData.path}</div>
 		</div>
 
 		<div class="flex-1 overflow-y-auto">
@@ -121,41 +121,43 @@
 					>
 						<div class="w-1.5 h-1.5 rounded-full flex-shrink-0 {opDotColors[op.type] || 'bg-surface-500'}"></div>
 						<span class="{opColors[op.type] || 'text-surface-400'} font-medium">{op.type}</span>
-						<span class="text-surface-600">#{op.index + 1}</span>
+						<span class="text-surface-400">#{op.index + 1}</span>
 						{#if op.isError}
 							<span class="text-red-400 text-[10px]">error</span>
 						{/if}
-						<span class="ml-auto text-surface-600 text-[10px]">jump</span>
+						<span class="ml-auto text-surface-400 text-[10px]">jump</span>
 					</button>
 				{/each}
 			</div>
 		</div>
 	</div>
 {:else}
-	<!-- File list grouped by directory -->
+	<!-- File tree grouped by directory -->
 	<div class="h-full overflow-y-auto">
 		{#if fileMap.length === 0}
-			<div class="text-surface-600 text-xs text-center py-8">No file operations in this session</div>
+			<div class="text-surface-500 text-xs text-center py-8">No file operations</div>
 		{:else}
-			<div class="px-1 py-1 text-[10px] text-surface-600 px-3">{fileMap.length} files touched</div>
+			<div class="px-3 py-2 text-[10px] text-surface-400">{fileMap.length} files</div>
 			{#each dirTree as [dir, files]}
-				<div class="mb-1">
-					<div class="px-3 py-1 text-[10px] text-surface-600 truncate">{dir}/</div>
+				<div class="mb-2">
+					<div class="px-3 py-1.5 text-[11px] text-surface-300 font-mono truncate flex items-center gap-1.5">
+						<span class="text-surface-500">&#x25B8;</span>
+						{dir}/
+					</div>
 					{#each files as file}
 						<button
 							onclick={() => (selectedFile = file.path)}
-							class="w-full text-left flex items-center gap-2 px-3 py-1.5 hover:bg-surface-800/50 transition-colors group"
+							class="w-full text-left flex items-center gap-2 pl-7 pr-3 py-2 hover:bg-surface-800/50 transition-colors group"
 						>
-							<span class="text-xs text-surface-300 group-hover:text-surface-100 transition-colors font-mono truncate flex-1">
+							<span class="text-xs text-surface-200 group-hover:text-surface-100 transition-colors font-mono truncate flex-1">
 								{file.name}
 							</span>
-							<!-- Mini operation indicators -->
 							<span class="flex gap-px flex-shrink-0">
 								{#each file.operations as op}
 									<span class="w-1 h-2.5 rounded-sm {opDotColors[op.type] || 'bg-surface-600'} {op.isError ? 'opacity-40' : ''}"></span>
 								{/each}
 							</span>
-							<span class="text-[10px] text-surface-600 flex-shrink-0 w-3 text-right">{file.operations.length}</span>
+							<span class="text-[10px] text-surface-400 flex-shrink-0 w-3 text-right">{file.operations.length}</span>
 						</button>
 					{/each}
 				</div>

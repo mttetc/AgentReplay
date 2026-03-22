@@ -35,6 +35,41 @@ interface CursorMessage {
 	inputTokens?: number;
 	outputTokens?: number;
 	tokensUsed?: number;
+	// Tool call fields (Cursor Composer / Agent mode)
+	toolCalls?: Array<{
+		name?: string;
+		function?: { name?: string; arguments?: string };
+		type?: string;
+		id?: string;
+		arguments?: string | Record<string, unknown>;
+		result?: string;
+		output?: string;
+	}>;
+	toolInvocations?: Array<{
+		toolName?: string;
+		args?: Record<string, unknown>;
+		result?: string;
+		state?: string;
+	}>;
+	// Cursor's codeblock-based tool calls
+	codeBlocks?: Array<{
+		language?: string;
+		code?: string;
+		uri?: string;
+		fileName?: string;
+	}>;
+	// File operations tracked by Cursor
+	fileEdits?: Array<{
+		uri?: string;
+		fileName?: string;
+		oldContent?: string;
+		newContent?: string;
+	}>;
+	terminalCommands?: Array<{
+		command?: string;
+		output?: string;
+		exitCode?: number;
+	}>;
 }
 
 interface CursorConversation {
@@ -207,6 +242,12 @@ export class CursorProvider implements SessionProvider {
 										if (role === 'user') inputTokens += t;
 										else if (role === 'assistant') outputTokens += t;
 									}
+
+									// Count tool calls
+									if (msg.toolCalls && Array.isArray(msg.toolCalls)) toolCallCount += msg.toolCalls.length;
+									if (msg.toolInvocations && Array.isArray(msg.toolInvocations)) toolCallCount += msg.toolInvocations.length;
+									if (msg.terminalCommands && Array.isArray(msg.terminalCommands)) toolCallCount += msg.terminalCommands.length;
+									if (msg.fileEdits && Array.isArray(msg.fileEdits)) toolCallCount += msg.fileEdits.length;
 								}
 
 								// Derive a slug from conversation title or first user message
@@ -299,6 +340,7 @@ function buildTimeline(
 	let model = '';
 	let inputTokens = 0;
 	let outputTokens = 0;
+	let toolCallCount = 0;
 
 	for (const msg of messages) {
 		const role = getMessageRole(msg);
@@ -313,6 +355,190 @@ function buildTimeline(
 			const t = msg.tokens || msg.tokensUsed || 0;
 			if (role === 'user') inputTokens += t;
 			else if (role === 'assistant') outputTokens += t;
+		}
+
+		// Parse explicit tool calls (Cursor Agent/Composer mode)
+		if (msg.toolCalls && Array.isArray(msg.toolCalls)) {
+			// Emit text first if any
+			if (text.trim()) {
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: { eventType: role === 'user' ? 'user_message' : 'assistant_text', text }
+				});
+				eventIndex++;
+			}
+
+			for (const tc of msg.toolCalls) {
+				const toolName = tc.name || tc.function?.name || tc.type || 'tool';
+				let input: Record<string, unknown> = {};
+				const rawArgs = tc.arguments || tc.function?.arguments;
+				if (typeof rawArgs === 'string') {
+					try { input = JSON.parse(rawArgs); } catch { input = { raw: rawArgs }; }
+				} else if (rawArgs && typeof rawArgs === 'object') {
+					input = rawArgs;
+				}
+
+				const result = tc.result || tc.output;
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: {
+						eventType: 'tool_call',
+						toolName,
+						toolUseId: tc.id || `cursor-${eventIndex}`,
+						input,
+						...(result ? { result: { content: result, isError: false } } : {})
+					}
+				});
+				eventIndex++;
+				toolCallCount++;
+			}
+			continue;
+		}
+
+		// Parse toolInvocations (alternative Cursor format)
+		if (msg.toolInvocations && Array.isArray(msg.toolInvocations)) {
+			if (text.trim()) {
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: { eventType: role === 'user' ? 'user_message' : 'assistant_text', text }
+				});
+				eventIndex++;
+			}
+
+			for (const ti of msg.toolInvocations) {
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: {
+						eventType: 'tool_call',
+						toolName: ti.toolName || 'tool',
+						toolUseId: `cursor-${eventIndex}`,
+						input: ti.args || {},
+						...(ti.result ? { result: { content: typeof ti.result === 'string' ? ti.result : JSON.stringify(ti.result), isError: ti.state === 'error' } } : {})
+					}
+				});
+				eventIndex++;
+				toolCallCount++;
+			}
+			continue;
+		}
+
+		// Parse terminal commands from Cursor agent
+		if (msg.terminalCommands && Array.isArray(msg.terminalCommands)) {
+			for (const cmd of msg.terminalCommands) {
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: {
+						eventType: 'tool_call',
+						toolName: 'Bash',
+						toolUseId: `cursor-bash-${eventIndex}`,
+						input: { command: cmd.command || '' },
+						result: {
+							content: cmd.output || `exit code: ${cmd.exitCode ?? 'unknown'}`,
+							isError: (cmd.exitCode ?? 0) !== 0
+						}
+					}
+				});
+				eventIndex++;
+				toolCallCount++;
+			}
+		}
+
+		// Parse file edits from Cursor agent
+		if (msg.fileEdits && Array.isArray(msg.fileEdits)) {
+			for (const edit of msg.fileEdits) {
+				const fileName = edit.fileName || edit.uri || 'unknown';
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: {
+						eventType: 'tool_call',
+						toolName: 'Edit',
+						toolUseId: `cursor-edit-${eventIndex}`,
+						input: {
+							file_path: fileName,
+							...(edit.oldContent ? { old_string: edit.oldContent.slice(0, 500) } : {}),
+							...(edit.newContent ? { new_string: edit.newContent.slice(0, 500) } : {})
+						},
+						result: { content: `Edited ${fileName}`, isError: false }
+					}
+				});
+				eventIndex++;
+				toolCallCount++;
+			}
+		}
+
+		// Parse code blocks as Read/Write operations
+		if (msg.codeBlocks && Array.isArray(msg.codeBlocks) && role === 'assistant') {
+			if (text.trim()) {
+				events.push({
+					id: `evt-${eventIndex}`,
+					index: eventIndex,
+					timestamp,
+					data: { eventType: 'assistant_text', text }
+				});
+				eventIndex++;
+			}
+
+			for (const cb of msg.codeBlocks) {
+				if (cb.uri || cb.fileName) {
+					events.push({
+						id: `evt-${eventIndex}`,
+						index: eventIndex,
+						timestamp,
+						data: {
+							eventType: 'tool_call',
+							toolName: 'Write',
+							toolUseId: `cursor-write-${eventIndex}`,
+							input: {
+								file_path: cb.fileName || cb.uri || 'unknown',
+								content: cb.code || ''
+							},
+							result: { content: cb.code || '', isError: false }
+						}
+					});
+					eventIndex++;
+					toolCallCount++;
+				}
+			}
+			continue;
+		}
+
+		// Fallback: detect tool-like patterns in assistant text
+		if (role === 'assistant' && text.trim()) {
+			const toolEvents = parseToolPatternsFromText(text, timestamp, eventIndex);
+			if (toolEvents.length > 0) {
+				// Emit remaining text without tool patterns
+				const cleanText = stripToolPatterns(text);
+				if (cleanText.trim()) {
+					events.push({
+						id: `evt-${eventIndex}`,
+						index: eventIndex,
+						timestamp,
+						data: { eventType: 'assistant_text', text: cleanText }
+					});
+					eventIndex++;
+				}
+
+				for (const te of toolEvents) {
+					events.push(te);
+					te.index = eventIndex;
+					te.id = `evt-${eventIndex}`;
+					eventIndex++;
+					toolCallCount++;
+				}
+				continue;
+			}
 		}
 
 		if (!text.trim()) continue;
@@ -350,7 +576,7 @@ function buildTimeline(
 		model: model || 'unknown',
 		version: '',
 		eventCount: events.length,
-		toolCallCount: 0,
+		toolCallCount,
 		inputTokens,
 		outputTokens,
 		estimatedCost: estimateCost(model, inputTokens, outputTokens),
@@ -360,4 +586,62 @@ function buildTimeline(
 	};
 
 	return { summary, events };
+}
+
+/** Detect tool-like patterns in raw assistant text (bash commands, file operations) */
+function parseToolPatternsFromText(text: string, timestamp: string, startIndex: number): TimelineEvent[] {
+	const events: TimelineEvent[] = [];
+
+	// Detect bash/terminal command blocks: ```bash\n...\n```
+	const bashRegex = /```(?:bash|sh|shell|terminal|zsh)\n([\s\S]*?)```/g;
+	let match;
+	while ((match = bashRegex.exec(text)) !== null) {
+		const command = match[1].trim();
+		if (command) {
+			events.push({
+				id: `evt-${startIndex + events.length}`,
+				index: startIndex + events.length,
+				timestamp,
+				data: {
+					eventType: 'tool_call',
+					toolName: 'Bash',
+					toolUseId: `cursor-infer-${startIndex + events.length}`,
+					input: { command },
+					result: { content: command, isError: false }
+				}
+			});
+		}
+	}
+
+	// Detect file path references with code blocks (e.g. "In `src/foo.ts`:" followed by code)
+	const fileEditRegex = /(?:(?:create|edit|modify|update|write to|in)\s+)?[`"]([^\s`"]+\.\w{1,10})[`"]\s*:?\s*```\w*\n([\s\S]*?)```/gi;
+	while ((match = fileEditRegex.exec(text)) !== null) {
+		const filePath = match[1];
+		const content = match[2].trim();
+		if (filePath && content && !filePath.startsWith('http')) {
+			events.push({
+				id: `evt-${startIndex + events.length}`,
+				index: startIndex + events.length,
+				timestamp,
+				data: {
+					eventType: 'tool_call',
+					toolName: 'Write',
+					toolUseId: `cursor-infer-${startIndex + events.length}`,
+					input: { file_path: filePath, content },
+					result: { content: `Wrote to ${filePath}`, isError: false }
+				}
+			});
+		}
+	}
+
+	return events;
+}
+
+/** Strip tool patterns from text to avoid duplication */
+function stripToolPatterns(text: string): string {
+	// Remove bash code blocks
+	let cleaned = text.replace(/```(?:bash|sh|shell|terminal|zsh)\n[\s\S]*?```/g, '');
+	// Remove file edit blocks that we parsed
+	cleaned = cleaned.replace(/(?:(?:create|edit|modify|update|write to|in)\s+)?[`"][^\s`"]+\.\w{1,10}[`"]\s*:?\s*```\w*\n[\s\S]*?```/gi, '');
+	return cleaned;
 }

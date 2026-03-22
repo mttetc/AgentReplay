@@ -166,7 +166,7 @@
 					class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors {providerFilter === p
 						? 'bg-surface-800 text-surface-200'
 						: 'text-surface-500 hover:text-surface-300'}"
-				>{p === 'claude-code' ? 'Claude Code' : 'Cursor'}</button>
+				>{p === 'claude-code' ? 'Claude Code' : p === 'cursor' ? 'Cursor' : 'Windsurf'}</button>
 			{/each}
 		{/if}
 	</div>
