@@ -48,7 +48,7 @@
 		"url": "https://github.com/mttetc/agent-replay/issues"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20.19"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5",
