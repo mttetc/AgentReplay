@@ -35,7 +35,7 @@ const mockTimeline: SessionTimeline = {
 			index: 1,
 			timestamp: '2025-01-15T10:01:00Z',
 			data: { eventType: 'assistant_text', text: 'Hi there!' },
-			tokens: { input: 500, output: 250 }
+			tokens: { input: 500, output: 250, cacheRead: 0, cacheCreation: 0 }
 		},
 		{
 			id: 'evt-2',
@@ -48,7 +48,7 @@ const mockTimeline: SessionTimeline = {
 				input: { command: 'ls' },
 				result: { content: 'file.ts', isError: false }
 			},
-			tokens: { input: 500, output: 250 }
+			tokens: { input: 500, output: 250, cacheRead: 0, cacheCreation: 0 }
 		}
 	]
 };

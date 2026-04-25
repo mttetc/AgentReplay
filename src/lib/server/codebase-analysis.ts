@@ -4,6 +4,7 @@ import { parseSessionByProvider } from './providers';
 import type { ProviderType } from './providers/types';
 import type { TimelineEvent, ToolCallEvent } from '$lib/types/timeline';
 import { shortPath, shortModel } from '$lib/utils/format';
+import { estimateCost } from '$lib/utils/cost';
 import { analyzePrompts, type PromptPattern } from './prompt-analysis';
 
 function formatCostRaw(cost: number): string {
@@ -242,7 +243,17 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		wk.cost += session.estimatedCost;
 		wk.sessions++;
 
-		const sessionFiles = new Map<string, { reads: number; writes: number; edits: number; errors: number; tokens: number; sequence: string[] }>();
+		const sessionFiles = new Map<string, {
+			reads: number;
+			writes: number;
+			edits: number;
+			errors: number;
+			input: number;
+			output: number;
+			cacheRead: number;
+			cacheCreation: number;
+			sequence: string[];
+		}>();
 		const sessionErrors = new Map<string, Array<{ tool: string; file: string }>>();
 		let thinkingChars = 0;
 		let totalOutputTokens = 0;
@@ -269,7 +280,13 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			const ts = toolStatsMap.get(tc.toolName)!;
 			ts.calls++;
 			if (tc.result?.isError) ts.errors++;
-			if (event.tokens) ts.totalTokens += event.tokens.input + event.tokens.output;
+			if (event.tokens) {
+				ts.totalTokens +=
+					event.tokens.input +
+					event.tokens.output +
+					event.tokens.cacheRead +
+					event.tokens.cacheCreation;
+			}
 
 			const input = tc.input as Record<string, unknown>;
 			if (!['Read', 'Write', 'Edit'].includes(tc.toolName)) continue;
@@ -277,7 +294,11 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 			if (!filePath) continue;
 
 			if (!sessionFiles.has(filePath)) {
-				sessionFiles.set(filePath, { reads: 0, writes: 0, edits: 0, errors: 0, tokens: 0, sequence: [] });
+				sessionFiles.set(filePath, {
+					reads: 0, writes: 0, edits: 0, errors: 0,
+					input: 0, output: 0, cacheRead: 0, cacheCreation: 0,
+					sequence: []
+				});
 			}
 			const sf = sessionFiles.get(filePath)!;
 			if (tc.toolName === 'Read') { sf.reads++; sf.sequence.push('R'); }
@@ -290,12 +311,13 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 				if (!sessionErrors.has(errorKey)) sessionErrors.set(errorKey, []);
 				sessionErrors.get(errorKey)!.push({ tool: tc.toolName, file: filePath });
 			}
-			if (event.tokens) sf.tokens += event.tokens.input + event.tokens.output;
+			if (event.tokens) {
+				sf.input += event.tokens.input;
+				sf.output += event.tokens.output;
+				sf.cacheRead += event.tokens.cacheRead;
+				sf.cacheCreation += event.tokens.cacheCreation;
+			}
 		}
-
-		const pricing = session.model.includes('opus') ? { i: 15, o: 75 }
-			: session.model.includes('haiku') ? { i: 0.8, o: 4 }
-			: { i: 3, o: 15 };
 
 		const loops: SessionWaste['loops'] = [];
 		const repeatedErrors: SessionWaste['repeatedErrors'] = [];
@@ -304,8 +326,12 @@ export async function analyzeCodebase(daysBack?: number): Promise<CodebaseAnalys
 		for (const [filePath, sf] of sessionFiles) {
 			const editCount = sf.writes + sf.edits;
 			const opsCount = sf.reads + sf.writes + sf.edits;
-			const costPerOp = sf.tokens > 0
-				? (sf.tokens * ((pricing.i + pricing.o) / 2)) / 1_000_000
+			const fileTokens = sf.input + sf.output + sf.cacheRead + sf.cacheCreation;
+			// Use real per-class pricing — Reads are mostly cache_read (10x cheaper
+			// than input), so the previous (input+output)/2 average inflated cost
+			// for read-heavy files dramatically.
+			const costPerOp = fileTokens > 0
+				? estimateCost(session.model, sf.input, sf.output, sf.cacheRead, sf.cacheCreation)
 				: session.estimatedCost / Math.max(1, events.length) * opsCount;
 
 			// Update global map

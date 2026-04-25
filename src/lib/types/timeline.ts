@@ -74,8 +74,17 @@ export interface TimelineEvent {
 	index: number;
 	timestamp: string;
 	data: TimelineEventData;
-	/** Token usage for this event's assistant turn (shared across events from same turn) */
-	tokens?: { input: number; output: number };
+	/**
+	 * This event's share of its turn's token usage. The parser splits the turn's
+	 * total tokens evenly across the events it produces, so summing across events
+	 * reconstitutes the turn's true cost without double-counting.
+	 */
+	tokens?: {
+		input: number;
+		output: number;
+		cacheRead: number;
+		cacheCreation: number;
+	};
 }
 
 export interface SessionSummary {
@@ -91,6 +100,7 @@ export interface SessionSummary {
 	inputTokens: number;
 	outputTokens: number;
 	cacheReadTokens: number;
+	cacheCreationTokens?: number;
 	estimatedCost: number;
 	/** Number of tool call errors */
 	errorCount: number;

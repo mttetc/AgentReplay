@@ -11,9 +11,15 @@
 		onclick: () => void;
 	} = $props();
 
-	// Cost heatmap: intensity 0-1 based on token usage relative to max
+	// Cost heatmap: intensity 0-1 based on total token usage relative to max
 	let costIntensity = $derived(
-		event.tokens ? Math.min(1, (event.tokens.input + event.tokens.output) / Math.max(1, maxTokens)) : 0
+		event.tokens
+			? Math.min(
+				1,
+				(event.tokens.input + event.tokens.output + event.tokens.cacheRead + event.tokens.cacheCreation) /
+					Math.max(1, maxTokens)
+			)
+			: 0
 	);
 
 	const dotColors: Record<string, string> = {
@@ -136,7 +142,7 @@
 	{#if costIntensity > 0}
 		<div class="absolute right-0 top-1 bottom-1 w-[3px] rounded-full opacity-60"
 			style="background: rgba(245,158,11,{costIntensity * 0.8 + 0.2});"
-			title="{event.tokens?.input ?? 0} in / {event.tokens?.output ?? 0} out"
+			title="{Math.round(event.tokens?.input ?? 0)} in / {Math.round(event.tokens?.output ?? 0)} out / {Math.round(event.tokens?.cacheRead ?? 0)} cached"
 		></div>
 	{/if}
 

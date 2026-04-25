@@ -36,7 +36,7 @@
 		let max = 1;
 		for (const ev of events) {
 			if (ev.tokens) {
-				const total = ev.tokens.input + ev.tokens.output;
+				const total = ev.tokens.input + ev.tokens.output + ev.tokens.cacheRead + ev.tokens.cacheCreation;
 				if (total > max) max = total;
 			}
 		}

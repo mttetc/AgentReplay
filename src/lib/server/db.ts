@@ -72,6 +72,24 @@ export function getDb(): Database.Database {
 	// Clean up expired cache entries on startup
 	db.prepare("DELETE FROM analysis_cache WHERE expires_at <= datetime('now')").run();
 
+	// Schema-version migration: rebuild session_index when the SessionSummary
+	// shape or cost-calculation logic changes. Bump SUMMARY_SCHEMA_VERSION when
+	// pricing tables, parser semantics, or summary fields change in a way that
+	// makes cached precomputed values wrong.
+	const SUMMARY_SCHEMA_VERSION = 2;
+	const versionRow = db
+		.prepare("SELECT data FROM analysis_cache WHERE cache_key = 'summary_schema_version'")
+		.get() as { data: string } | undefined;
+	const storedVersion = versionRow ? parseInt(versionRow.data, 10) : 0;
+	if (storedVersion < SUMMARY_SCHEMA_VERSION) {
+		db.prepare('DELETE FROM session_index').run();
+		db.prepare(
+			`INSERT INTO analysis_cache (cache_key, data, expires_at)
+			 VALUES (?, ?, ?)
+			 ON CONFLICT (cache_key) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at`
+		).run('summary_schema_version', String(SUMMARY_SCHEMA_VERSION), '2099-01-01T00:00:00Z');
+	}
+
 	return db;
 }
 

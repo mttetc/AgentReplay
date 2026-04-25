@@ -26,6 +26,7 @@ interface AssistantTurn {
 	inputTokens: number;
 	outputTokens: number;
 	cacheReadTokens: number;
+	cacheCreationTokens: number;
 }
 
 /**
@@ -95,7 +96,8 @@ export async function parseSession(
 					blocks: [],
 					inputTokens: 0,
 					outputTokens: 0,
-					cacheReadTokens: 0
+					cacheReadTokens: 0,
+					cacheCreationTokens: 0
 				});
 			}
 
@@ -118,6 +120,7 @@ export async function parseSession(
 			if (usage) {
 				turn.inputTokens += usage.input_tokens || 0;
 				turn.cacheReadTokens += usage.cache_read_input_tokens || 0;
+				turn.cacheCreationTokens += usage.cache_creation_input_tokens || 0;
 				turn.outputTokens += usage.output_tokens || 0;
 			}
 
@@ -167,6 +170,7 @@ export async function parseSession(
 	let totalInputTokens = 0;
 	let totalOutputTokens = 0;
 	let totalCacheReadTokens = 0;
+	let totalCacheCreationTokens = 0;
 	let startedAt = '';
 	let lastActiveAt = '';
 
@@ -209,20 +213,44 @@ export async function parseSession(
 			totalInputTokens += turn.inputTokens;
 			totalOutputTokens += turn.outputTokens;
 			totalCacheReadTokens += turn.cacheReadTokens;
+			totalCacheCreationTokens += turn.cacheCreationTokens;
 			lastActiveAt = turn.timestamp;
-			const turnTokens = (turn.inputTokens > 0 || turn.outputTokens > 0)
-				? { input: turn.inputTokens, output: turn.outputTokens }
-				: undefined;
+
+			// Pre-count the number of events this turn will emit so we can split
+			// the turn's token usage evenly across them. This prevents downstream
+			// per-event aggregations from multi-counting the same turn's tokens.
+			const emittedBlockCount = turn.blocks.reduce((n, block) => {
+				if (block.type === 'thinking') return n + 1;
+				if (block.type === 'text') {
+					return (block as RawContentBlockText).text.trim() ? n + 1 : n;
+				}
+				if (block.type === 'tool_use') return n + 1;
+				return n;
+			}, 0);
+
+			const totalTurnTokens =
+				turn.inputTokens + turn.outputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
+			const turnTokens =
+				emittedBlockCount > 0 && totalTurnTokens > 0
+					? {
+							input: turn.inputTokens / emittedBlockCount,
+							output: turn.outputTokens / emittedBlockCount,
+							cacheRead: turn.cacheReadTokens / emittedBlockCount,
+							cacheCreation: turn.cacheCreationTokens / emittedBlockCount
+						}
+					: undefined;
 
 			for (const block of turn.blocks) {
 				if (block.type === 'thinking') {
+					// Emit even when `thinking` is empty: Anthropic returns
+					// encrypted thinking with text="" and a signature payload.
+					// We can't see the content but the event is still meaningful
+					// (signals that extended thinking ran on this turn).
 					const thinkBlock = block as RawContentBlockThinking;
-					if (thinkBlock.thinking.trim()) {
-						events.push(makeEvent(eventIndex++, turn.timestamp, {
-							eventType: 'thinking',
-							thinking: thinkBlock.thinking
-						}, turnTokens));
-					}
+					events.push(makeEvent(eventIndex++, turn.timestamp, {
+						eventType: 'thinking',
+						thinking: thinkBlock.thinking
+					}, turnTokens));
 				} else if (block.type === 'text') {
 					const textBlock = block as RawContentBlockText;
 					if (textBlock.text.trim()) {
@@ -273,7 +301,14 @@ export async function parseSession(
 		inputTokens: totalInputTokens,
 		outputTokens: totalOutputTokens,
 		cacheReadTokens: totalCacheReadTokens,
-		estimatedCost: estimateCost(model, totalInputTokens, totalOutputTokens, totalCacheReadTokens),
+		cacheCreationTokens: totalCacheCreationTokens,
+		estimatedCost: estimateCost(
+			model,
+			totalInputTokens,
+			totalOutputTokens,
+			totalCacheReadTokens,
+			totalCacheCreationTokens
+		),
 		filePath,
 		provider: 'claude-code',
 		...(gitBranch && { gitBranch }),
@@ -292,7 +327,12 @@ export async function parseSession(
 	return result;
 }
 
-function makeEvent(index: number, timestamp: string, data: TimelineEventData, tokens?: { input: number; output: number }): TimelineEvent {
+function makeEvent(
+	index: number,
+	timestamp: string,
+	data: TimelineEventData,
+	tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number }
+): TimelineEvent {
 	return {
 		id: `evt-${index}`,
 		index,

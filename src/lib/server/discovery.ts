@@ -104,6 +104,7 @@ async function buildSummary(
 	let inputTokens = 0;
 	let outputTokens = 0;
 	let cacheReadTokens = 0;
+	let cacheCreationTokens = 0;
 	let toolCallCount = 0;
 	let errorCount = 0;
 	let eventCount = 0;
@@ -150,6 +151,7 @@ async function buildSummary(
 			if (usage) {
 				inputTokens += usage.input_tokens || 0;
 				cacheReadTokens += usage.cache_read_input_tokens || 0;
+				cacheCreationTokens += usage.cache_creation_input_tokens || 0;
 				outputTokens += usage.output_tokens || 0;
 			}
 
@@ -179,7 +181,14 @@ async function buildSummary(
 		inputTokens,
 		outputTokens,
 		cacheReadTokens,
-		estimatedCost: estimateCost(model, inputTokens, outputTokens, cacheReadTokens),
+		cacheCreationTokens,
+		estimatedCost: estimateCost(
+			model,
+			inputTokens,
+			outputTokens,
+			cacheReadTokens,
+			cacheCreationTokens
+		),
 		filePath,
 		provider: 'claude-code',
 		...(gitBranch && { gitBranch }),

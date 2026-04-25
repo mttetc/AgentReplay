@@ -13,8 +13,11 @@
 	import { getSessionAnnotations } from '$lib/stores/annotations.svelte';
 	import GitCommits from '../../../components/GitCommits.svelte';
 	import SessionTags from '../../../components/SessionTags.svelte';
+	import SessionOverhead from '../../../components/SessionOverhead.svelte';
+	import type { SessionOverhead as SessionOverheadType } from '$lib/server/overhead-analysis';
 
-	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[] } } = $props();
+	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[]; overhead: SessionOverheadType | null } } = $props();
+	let showOverhead = $state(false);
 
 	let sessionId = $derived(data.timeline.summary.sessionId);
 	let displayProject = $derived(data.timeline.summary.cwd || data.timeline.summary.project);
@@ -387,6 +390,39 @@
 		</div>
 		<StatsBar summary={data.timeline.summary} />
 		<GitCommits commits={data.commits} />
+		{#if data.overhead}
+			<div class="px-4 py-2 border-t border-surface-800/50">
+				<button
+					type="button"
+					onclick={() => (showOverhead = !showOverhead)}
+					class="flex items-center gap-2 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+				>
+					<span class="text-[10px]">{showOverhead ? '▾' : '▸'}</span>
+					<span class="font-medium">Setup overhead</span>
+					<span class="text-surface-500">·</span>
+					<span class="text-surface-500">
+						effort: <span class="text-surface-300 font-mono">{data.overhead.effort.bucket}</span>
+					</span>
+					{#if data.overhead.skillsInvoked.length > 0}
+						<span class="text-surface-500">·</span>
+						<span class="text-surface-500">
+							{data.overhead.skillsInvoked.length} skill{data.overhead.skillsInvoked.length === 1 ? '' : 's'}
+						</span>
+					{/if}
+					{#if data.overhead.mcpUsed.length > 0}
+						<span class="text-surface-500">·</span>
+						<span class="text-surface-500">
+							{data.overhead.mcpUsed.length} MCP server{data.overhead.mcpUsed.length === 1 ? '' : 's'}
+						</span>
+					{/if}
+				</button>
+				{#if showOverhead}
+					<div class="mt-3">
+						<SessionOverhead overhead={data.overhead} />
+					</div>
+				{/if}
+			</div>
+		{/if}
 		<PlaybackControls
 			currentIndex={selectedIndex}
 			totalEvents={data.timeline.events.length}

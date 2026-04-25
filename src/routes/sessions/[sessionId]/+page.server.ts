@@ -7,6 +7,7 @@ import { readdir, access } from 'fs/promises';
 import { join, resolve } from 'path';
 import type { ProviderType } from '$lib/server/providers/types';
 import { findRelatedCommits } from '$lib/server/git-integration';
+import { analyzeSessionOverhead } from '$lib/server/overhead-analysis';
 import { z } from 'zod';
 
 const VALID_PROVIDERS: ProviderType[] = ['claude-code', 'cursor', 'windsurf', 'aider', 'copilot'];
@@ -39,13 +40,16 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 		try {
 			const timeline = await parseSessionByProvider(sessionId, provider, meta);
-			const commits = await findRelatedCommits(
-				timeline.summary.cwd || meta.project || timeline.summary.project,
-				timeline.summary.startedAt,
-				timeline.summary.lastActiveAt,
-				timeline.events
-			).catch(() => []);
-			return { timeline, commits };
+			const [commits, overhead] = await Promise.all([
+				findRelatedCommits(
+					timeline.summary.cwd || meta.project || timeline.summary.project,
+					timeline.summary.startedAt,
+					timeline.summary.lastActiveAt,
+					timeline.events
+				).catch(() => []),
+				analyzeSessionOverhead(timeline).catch(() => null)
+			]);
+			return { timeline, commits, overhead };
 		} catch (e) {
 			throw error(500, `Failed to parse ${provider} session: ${e instanceof Error ? e.message : 'Unknown error'}`);
 		}
@@ -91,17 +95,19 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	try {
 		const timeline = await parseSession(filePath, sessionId, project);
 
-		// Find related git commits (non-blocking)
 		// Prefer cwd (actual path) over project (decoded, may have broken hyphens)
 		const gitPath = timeline.summary.cwd || project;
-		const commits = await findRelatedCommits(
-			gitPath,
-			timeline.summary.startedAt,
-			timeline.summary.lastActiveAt,
-			timeline.events
-		).catch(() => []);
+		const [commits, overhead] = await Promise.all([
+			findRelatedCommits(
+				gitPath,
+				timeline.summary.startedAt,
+				timeline.summary.lastActiveAt,
+				timeline.events
+			).catch(() => []),
+			analyzeSessionOverhead(timeline).catch(() => null)
+		]);
 
-		return { timeline, commits };
+		return { timeline, commits, overhead };
 	} catch (e) {
 		throw error(500, `Failed to parse session: ${e instanceof Error ? e.message : 'Unknown error'}`);
 	}

@@ -47,4 +47,24 @@ describe('estimateCost', () => {
 		const withZero = estimateCost('claude-opus-4-6', 1000, 500, 0);
 		expect(withZero).toBe(withoutArg);
 	});
+
+	it('matches Opus pricing for newer Opus model ids by prefix', () => {
+		const cost = estimateCost('claude-opus-4-7', 1000, 500);
+		expect(cost).toBe((1000 * 15 + 500 * 75) / 1_000_000);
+	});
+
+	it('matches Sonnet pricing for newer Sonnet model ids by prefix', () => {
+		const cost = estimateCost('claude-sonnet-4-6', 1000, 500);
+		expect(cost).toBe((1000 * 3 + 500 * 15) / 1_000_000);
+	});
+
+	it('charges cache_creation tokens at 1.25x input rate (Sonnet)', () => {
+		const cost = estimateCost('claude-sonnet-4-5-20250929', 0, 0, 0, 1000);
+		expect(cost).toBeCloseTo((1000 * 3.75) / 1_000_000, 10);
+	});
+
+	it('charges cache_creation tokens at 1.25x input rate (Opus)', () => {
+		const cost = estimateCost('claude-opus-4-7', 0, 0, 0, 1000);
+		expect(cost).toBeCloseTo((1000 * 18.75) / 1_000_000, 10);
+	});
 });

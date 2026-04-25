@@ -8,9 +8,11 @@
 	import ToolAnalytics from '../components/ToolAnalytics.svelte';
 	import ModelBenchmarks from '../components/ModelBenchmarks.svelte';
 	import PromptInsights from '../components/PromptInsights.svelte';
+	import OverheadPanel from '../components/OverheadPanel.svelte';
 
 	let { data } = $props();
 	let a = $derived(data.analysis);
+	let overhead = $derived(data.overhead);
 
 	// Live refresh via SSE
 	$effect(() => {
@@ -21,7 +23,7 @@
 	});
 
 	// Tab state — derived from URL hash or default
-	let tab: 'overview' | 'tools' | 'models' | 'explorer' = $state('overview');
+	let tab: 'overview' | 'tools' | 'models' | 'overhead' | 'explorer' = $state('overview');
 
 	// Build URL from state
 	function buildUrl(params: Record<string, string | undefined>) {
@@ -220,6 +222,7 @@
 		{ key: 'overview' as const, label: 'Overview' },
 		{ key: 'tools' as const, label: 'Tools' },
 		{ key: 'models' as const, label: 'Models' },
+		{ key: 'overhead' as const, label: 'Overhead' },
 		{ key: 'explorer' as const, label: 'Explorer' }
 	];
 </script>
@@ -334,6 +337,10 @@
 		{:else}
 			<div class="text-center py-16 text-surface-500 text-sm">Not enough data to compare models yet.</div>
 		{/if}
+
+	<!-- TAB: Overhead -->
+	{:else if tab === 'overhead'}
+		<OverheadPanel {overhead} />
 
 	<!-- TAB: Explorer -->
 	{:else if tab === 'explorer'}
