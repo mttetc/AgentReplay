@@ -104,7 +104,7 @@ function countFileOverlap(commitFiles: string[], sessionFiles: Set<string>): num
 	).length;
 }
 
-async function findGitDir(projectPath: string): Promise<string | null> {
+export async function findGitDir(projectPath: string): Promise<string | null> {
 	// Try the path as-is first (works when cwd is passed)
 	for (const candidate of getCandidatePaths(projectPath)) {
 		try {

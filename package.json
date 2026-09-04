@@ -1,7 +1,7 @@
 {
 	"name": "agent-replay",
-	"version": "0.1.1",
-	"description": "DevTools for replaying AI agent sessions — browse, inspect, and debug Claude Code and Cursor sessions with a timeline-based UI",
+	"version": "0.2.0",
+	"description": "Local analytics for AI coding agents — replay Claude Code, Cursor, Windsurf, Aider and Copilot sessions, measure how much agent code survives in git, audit setup overhead, and generate evidence-grounded post-mortems",
 	"type": "module",
 	"bin": {
 		"agent-replay": "bin/agent-replay.js"
@@ -28,13 +28,18 @@
 	"keywords": [
 		"ai",
 		"agent",
+		"analytics",
 		"replay",
 		"devtools",
 		"claude",
 		"claude-code",
 		"cursor",
-		"debugger",
-		"session",
+		"windsurf",
+		"aider",
+		"copilot",
+		"observability",
+		"code-survival",
+		"post-mortem",
 		"timeline"
 	],
 	"author": "mttetc",
@@ -48,7 +53,7 @@
 		"url": "https://github.com/mttetc/agent-replay/issues"
 	},
 	"engines": {
-		"node": ">=20.19"
+		"node": ">=22"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5",
@@ -73,7 +78,8 @@
 		"vitest": "^4.1.0"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.6.2",
+		"@anthropic-ai/sdk": "^0.123.0",
+		"better-sqlite3": "^13.0.3",
 		"chart.js": "^4.5.1",
 		"diff": "^7",
 		"paneforge": "^1.0.2",

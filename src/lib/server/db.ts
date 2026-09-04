@@ -62,6 +62,14 @@ export function getDb(): Database.Database {
 			PRIMARY KEY (file_path)
 		);
 
+		CREATE TABLE IF NOT EXISTS postmortems (
+			session_id TEXT PRIMARY KEY,
+			provider TEXT NOT NULL,
+			model TEXT NOT NULL,
+			report_json TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
+
 		CREATE INDEX IF NOT EXISTS idx_annotations_session ON annotations(session_id);
 		CREATE INDEX IF NOT EXISTS idx_bookmarks_session ON bookmarks(session_id);
 		CREATE INDEX IF NOT EXISTS idx_tags_session ON tags(session_id);
@@ -76,7 +84,7 @@ export function getDb(): Database.Database {
 	// shape or cost-calculation logic changes. Bump SUMMARY_SCHEMA_VERSION when
 	// pricing tables, parser semantics, or summary fields change in a way that
 	// makes cached precomputed values wrong.
-	const SUMMARY_SCHEMA_VERSION = 2;
+	const SUMMARY_SCHEMA_VERSION = 3;
 	const versionRow = db
 		.prepare("SELECT data FROM analysis_cache WHERE cache_key = 'summary_schema_version'")
 		.get() as { data: string } | undefined;
@@ -294,4 +302,46 @@ export function getAllIndexedSessions(provider: string): IndexedSession[] {
 export function removeIndexedSession(filePath: string): void {
 	const db = getDb();
 	db.prepare('DELETE FROM session_index WHERE file_path = ?').run(filePath);
+}
+
+// --- Post-mortems (LLM analyses, one per session, regenerated on demand) ---
+
+export interface DbPostmortem {
+	sessionId: string;
+	provider: string;
+	model: string;
+	reportJson: string;
+	createdAt: string;
+}
+
+export function getPostmortem(sessionId: string): DbPostmortem | null {
+	const db = getDb();
+	const row = db
+		.prepare('SELECT session_id, provider, model, report_json, created_at FROM postmortems WHERE session_id = ?')
+		.get(sessionId) as
+		| { session_id: string; provider: string; model: string; report_json: string; created_at: string }
+		| undefined;
+	if (!row) return null;
+	return {
+		sessionId: row.session_id,
+		provider: row.provider,
+		model: row.model,
+		reportJson: row.report_json,
+		createdAt: row.created_at
+	};
+}
+
+export function setPostmortem(sessionId: string, provider: string, model: string, reportJson: string): void {
+	const db = getDb();
+	db.prepare(
+		`INSERT INTO postmortems (session_id, provider, model, report_json, created_at)
+		 VALUES (?, ?, ?, ?, datetime('now'))
+		 ON CONFLICT (session_id)
+		 DO UPDATE SET provider = excluded.provider, model = excluded.model, report_json = excluded.report_json, created_at = datetime('now')`
+	).run(sessionId, provider, model, reportJson);
+}
+
+export function deletePostmortem(sessionId: string): void {
+	const db = getDb();
+	db.prepare('DELETE FROM postmortems WHERE session_id = ?').run(sessionId);
 }
