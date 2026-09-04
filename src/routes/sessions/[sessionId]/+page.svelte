@@ -14,10 +14,45 @@
 	import GitCommits from '../../../components/GitCommits.svelte';
 	import SessionTags from '../../../components/SessionTags.svelte';
 	import SessionOverhead from '../../../components/SessionOverhead.svelte';
+	import SurvivalPanel from '../../../components/SurvivalPanel.svelte';
+	import PostMortemPanel from '../../../components/PostMortemPanel.svelte';
 	import type { SessionOverhead as SessionOverheadType } from '$lib/server/overhead-analysis';
+	import type { SessionSurvival } from '$lib/server/code-survival';
+	import type { PostMortemReport, LlmConfig } from '$lib/server/postmortem';
 
-	let { data }: { data: { timeline: SessionTimeline; commits: GitCommit[]; overhead: SessionOverheadType | null } } = $props();
+	let {
+		data
+	}: {
+		data: {
+			timeline: SessionTimeline;
+			commits: GitCommit[];
+			overhead: SessionOverheadType | null;
+			survival: SessionSurvival | null;
+			postmortem: { reportJson: string } | null;
+			llmConfig: LlmConfig;
+			sessionParams: Record<string, string>;
+		};
+	} = $props();
 	let showOverhead = $state(false);
+	let showSurvival = $state(false);
+	let showPostMortem = $state(false);
+
+	let initialPostMortem: PostMortemReport | null = $derived.by(() => {
+		if (!data.postmortem) return null;
+		try {
+			return JSON.parse(data.postmortem.reportJson) as PostMortemReport;
+		} catch {
+			return null;
+		}
+	});
+
+	function survivalClass(v: SessionSurvival['verdict']): string {
+		if (v === 'kept') return 'text-emerald-400';
+		if (v === 'mostly-kept') return 'text-blue-400';
+		if (v === 'reworked') return 'text-amber-400';
+		if (v === 'discarded') return 'text-red-400';
+		return 'text-surface-400';
+	}
 
 	let sessionId = $derived(data.timeline.summary.sessionId);
 	let displayProject = $derived(data.timeline.summary.cwd || data.timeline.summary.project);
@@ -390,6 +425,68 @@
 		</div>
 		<StatsBar summary={data.timeline.summary} />
 		<GitCommits commits={data.commits} />
+		<!-- Outcome: code survival -->
+		<div class="px-4 py-2 border-t border-surface-800/50">
+			<button
+				type="button"
+				onclick={() => (showSurvival = !showSurvival)}
+				class="flex items-center gap-2 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+			>
+				<span class="text-[10px]">{showSurvival ? '▾' : '▸'}</span>
+				<span class="font-medium">Code survival</span>
+				<span class="text-surface-500">·</span>
+				{#if data.survival && data.survival.agentLines > 0}
+					<span class="{survivalClass(data.survival.verdict)} font-mono font-medium">{data.survival.survivalPct}%</span>
+					<span class="text-surface-500">of {data.survival.agentLines} agent lines still in the repo</span>
+					<span class="text-surface-500">·</span>
+					<span class="text-surface-500">{data.survival.committedPct}% committed</span>
+					{#if data.survival.gone > 0}
+						<span class="text-surface-500">·</span>
+						<span class="text-red-400/80">{data.survival.gone} gone</span>
+					{/if}
+				{:else}
+					<span class="text-surface-500">not measurable (no textual edits inside a git repo)</span>
+				{/if}
+			</button>
+			{#if showSurvival && data.survival}
+				<div class="mt-3">
+					<SurvivalPanel survival={data.survival} onjump={goTo} />
+				</div>
+			{/if}
+		</div>
+
+		<!-- LLM post-mortem -->
+		<div class="px-4 py-2 border-t border-surface-800/50">
+			<button
+				type="button"
+				onclick={() => (showPostMortem = !showPostMortem)}
+				class="flex items-center gap-2 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+			>
+				<span class="text-[10px]">{showPostMortem ? '▾' : '▸'}</span>
+				<span class="font-medium">Post-mortem</span>
+				<span class="text-surface-500">·</span>
+				{#if initialPostMortem}
+					<span class="text-surface-300 truncate max-w-[60ch]">{initialPostMortem.headline}</span>
+				{:else if data.llmConfig.configured}
+					<span class="text-surface-500">not generated yet ({data.llmConfig.model})</span>
+				{:else}
+					<span class="text-surface-500">LLM not configured</span>
+				{/if}
+			</button>
+			{#if showPostMortem}
+				<div class="mt-3">
+					<PostMortemPanel
+						sessionId={data.timeline.summary.sessionId}
+						provider={data.timeline.summary.provider}
+						params={data.sessionParams}
+						initialReport={initialPostMortem}
+						config={data.llmConfig}
+						onjump={goTo}
+					/>
+				</div>
+			{/if}
+		</div>
+
 		{#if data.overhead}
 			<div class="px-4 py-2 border-t border-surface-800/50">
 				<button

@@ -70,6 +70,8 @@ export function shortModel(model: string): string {
 	const m = model.toLowerCase();
 	const versionMatch = m.match(/(\d+)-(\d+)(?:-|$)/);
 	const version = versionMatch ? ` ${versionMatch[1]}.${versionMatch[2]}` : '';
+	if (m.includes('fable')) return `Fable${version}`;
+	if (m.includes('mythos')) return `Mythos${version}`;
 	if (m.includes('opus')) return `Opus${version}`;
 	if (m.includes('sonnet')) return `Sonnet${version}`;
 	if (m.includes('haiku')) return `Haiku${version}`;

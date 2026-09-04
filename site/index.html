@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgentReplay — DevTools for AI coding sessions</title>
-<meta name="description" content="Step through every tool call, diff, and decision your AI coding agent made. Locally. Instantly.">
+<title>AgentReplay — Local analytics for AI coding agents</title>
+<meta name="description" content="Replay Claude Code, Cursor, Windsurf, Aider and Copilot sessions. Measure how much agent code survives in git. Audit setup overhead. Locally.">
 <meta property="og:title" content="AgentReplay">
-<meta property="og:description" content="DevTools for AI coding sessions">
+<meta property="og:description" content="Local analytics for AI coding agents">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Ctext x='4' y='22' font-family='system-ui' font-weight='700' font-size='14' fill='%233b82f6'%3Ear%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -877,8 +877,8 @@ footer a:hover { color: var(--surface-100); }
 
   <!-- HERO -->
   <section class="hero container">
-    <h1>Your agent ran <span class="num">47</span> tools.<br><span class="key">What actually happened?</span></h1>
-    <p class="sub">Replay any Claude Code or Cursor session. Step through diffs, tool calls, and token costs. Runs locally.</p>
+    <h1>Your agent wrote <span class="num">312</span> lines.<br><span class="key">How many are still in your repo?</span></h1>
+    <p class="sub">Replay any agent session, follow every line it wrote into git, price what your CLAUDE.md and MCP servers cost per month. Runs locally.</p>
     <div class="install-row">
       <div class="install-cmd mono" id="installBtn">
         <span class="dollar">$</span>
@@ -889,6 +889,9 @@ footer a:hover { color: var(--surface-100); }
         works with
         <span class="pill">Claude Code</span>
         <span class="pill">Cursor</span>
+        <span class="pill">Windsurf</span>
+        <span class="pill">Aider</span>
+        <span class="pill">Copilot</span>
       </div>
     </div>
   </section>
@@ -954,7 +957,7 @@ footer a:hover { color: var(--surface-100); }
 
   <!-- FEATURES -->
   <section id="features" class="features-section container">
-    <h2 class="mockup-title">A session, replayed</h2>
+    <h2 class="mockup-title">A session, replayed and measured</h2>
     <div class="bento">
 
       <!-- Timeline: wide cell with keyboard keys -->
@@ -997,6 +1000,18 @@ footer a:hover { color: var(--surface-100); }
           <div class="md-line md-add">+ if (!token) {</div>
           <div class="md-line md-add">+   throw new AuthError();</div>
           <div class="md-line md-add">+ }</div>
+        </div>
+      </div>
+
+      <!-- Code survival -->
+      <div class="bento-cell">
+        <div class="bc-label">Code survival</div>
+        <div class="bc-desc">Every agent line, followed into git.</div>
+        <div class="mini-local">
+          <div class="loc-line"><span class="loc-check">&#10003;</span> 248 committed</div>
+          <div class="loc-line"><span class="loc-check">&#10003;</span> 31 uncommitted</div>
+          <div class="loc-line"><span class="loc-x">&#10007;</span> <span class="loc-dim">33 gone</span></div>
+          <div class="loc-line"><span class="loc-dim">89% still in repo</span></div>
         </div>
       </div>
 
@@ -1108,7 +1123,9 @@ footer a:hover { color: var(--surface-100); }
         Supports
         <span class="pr-tag">Claude Code</span>
         <span class="pr-tag">Cursor</span>
-        <span class="pr-tag soon">Windsurf (soon)</span>
+        <span class="pr-tag">Windsurf</span>
+        <span class="pr-tag">Aider</span>
+        <span class="pr-tag">Copilot</span>
       </div>
     </div>
   </section>

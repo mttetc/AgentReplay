@@ -1,102 +1,55 @@
 # Agent Replay — Roadmap
 
-## Diagnostic
+## Positionnement
 
-L'app est un bon viewer de sessions AI, mais un viewer ne suffit pas — il faut qu'elle **change le comportement** de l'utilisateur pour qu'il la garde installée.
+Agent Replay n'est plus un simple viewer. C'est un outil d'analytics local pour agents de code, dont la thèse est simple : les logs de session disent ce que l'agent a fait, seul git dit ce qui en est resté. Tout ce qui est mesurable de façon déterministe l'est avant qu'un LLM intervienne, et le LLM ne fait que lire ces mesures.
 
----
+Ce qui distingue le projet des fonctions intégrées aux agents (`/insights` de Claude Code, par exemple) :
 
-## P0 — Raison de revenir ✅
-
-### Onboarding "wow moment"
-La page d'accueil montre immédiatement les insights les plus percutants :
-- Session la plus coûteuse (lien direct)
-- Fichier le plus problématique (score + recommandation)
-- Tendance coût vs période précédente (% change)
-- Résumé "headline" contextuel en une phrase
-- Stats cards: sessions, total cost, avg/session, errors
-
-### Trends temporels
-Graphiques Chart.js sur la page d'accueil :
-- Coût par jour (line chart avec fill)
-- Sessions & erreurs par jour (dual axis)
-- Comparaison période courante vs précédente (% dans les cards)
-
-## P1 — Workflow & partage ✅
-
-### Export HTML statique partageable
-- Bouton "Export .html" dans le menu Export de la vue session
-- Génère un fichier HTML self-contained (CSS inline, données embarquées)
-- Ouvrable dans n'importe quel navigateur sans serveur
-- `src/lib/utils/export-html.ts`
-
-### Hook post-session Claude Code
-- Script `hooks/post-session-summary.sh`
-- Affiche: tool calls, errors, tokens, estimated cost
-- Instructions d'installation dans le script
-- Compatible avec Claude Code Stop hook
-
-### Lien session → Git
-- Corrélation session ↔ commits git par timestamp + fichiers touchés
-- Section pliable "Related commits" dans la vue session
-- `src/lib/server/git-integration.ts`
-- Composant réutilisable `GitCommits.svelte`
-
-## P2 — Écosystème & persistence ✅
-
-### Support Aider
-- Provider `src/lib/server/providers/aider.ts`
-- Parse `.aider.chat.history.md` (markdown format)
-- Détection de fichiers référencés dans les commandes
-- Scan des répertoires courants (~/Projects, ~/code, etc.)
-
-### Support GitHub Copilot
-- Provider `src/lib/server/providers/copilot.ts`
-- Parse les JSON de `github.copilot-chat` dans VS Code globalStorage
-- Support macOS, Linux, Windows + VS Code Insiders
-- Support formats messages et turns
-
-### SQLite local pour persistence
-- `src/lib/server/db.ts` — module complet avec:
-  - Annotations (remplace localStorage)
-  - Bookmarks (nouveau)
-  - Tags par session (nouveau)
-  - Cache d'analyse (persistant)
-- API endpoint `/api/annotations` (GET/POST)
-- Migration automatique depuis localStorage
-- Fallback localStorage si l'API échoue
-- WAL mode pour la performance
+1. **Multi-agents** : cinq providers dans un même modèle d'événements.
+2. **Survie du code** : mesure contre git, hors de la session, inaccessible à l'agent lui-même.
+3. **Audit d'overhead** : coût des CLAUDE.md, skills et serveurs MCP, avec attribution par skill.
 
 ---
 
-## P3 — Équipe (futur, non priorisé)
+## Fait
 
-Dashboard équipe, annotations collaboratives, export Slack/GitHub.
+### v0.1 — Viewer
+- Timeline, diffs, sortie bash, tokens, coût par session
+- Providers Claude Code, Cursor, Windsurf, Aider, Copilot
+- Export HTML / Markdown / JSON, annotations, tags, bookmarks, SQLite local
+- Corrélation commits git par fenêtre temporelle et fichiers touchés
+- Hook post-session Claude Code
+- Audit d'overhead (CLAUDE.md, skills, MCP) avec attribution de coût par skill
+
+### v0.2 — Outcome
+- **Survie du code** (`code-survival.ts`) : chaque ligne écrite par l'agent est suivie dans HEAD et l'arbre de travail ; committed / uncommitted / gone / self-revised, par fichier, par session, agrégé sur le dashboard
+- **Post-mortem LLM** (`postmortem.ts`) : pack de preuves cité par identifiants d'événements, schéma de sortie strict, citations invalides supprimées et comptées, Claude API ou Ollama local, génération à la demande uniquement
+- Grille tarifaire corrigée (Opus 4.5+ à 5/25, Sonnet 5 à 2/10, Haiku 4.5 à 1/5, Fable/Mythos à 10/50) ; l'ancienne grille surfacturait Opus d'un facteur 3
+- Node 22+, better-sqlite3 13, matrice CI 22/24
+- README honnête sur la couverture réelle par provider
 
 ---
 
-## Architecture
+## À faire
 
-### Fichiers créés
-```
-hooks/post-session-summary.sh     — Hook Claude Code
-src/lib/server/db.ts              — SQLite persistence layer
-src/lib/server/git-integration.ts — Git commit correlation
-src/lib/utils/export-html.ts      — Static HTML export
-src/lib/server/providers/aider.ts  — Aider provider
-src/lib/server/providers/copilot.ts — GitHub Copilot provider
-src/components/GitCommits.svelte   — Git commits component
-src/routes/api/annotations/+server.ts — Annotations API
-```
+### Survie du code, phase 2
+- Distinguer « réécrit par l'humain » de « réécrit par une session ultérieure » en croisant les sessions qui touchent le même fichier
+- Détecter les lignes reformatées (au-delà des espaces) via similarité plutôt qu'égalité stricte
+- Survie à horizon fixe (J+7, J+30) en plus de « maintenant », pour comparer des sessions d'âges différents
+- Mesurer aussi la survie des suppressions : le code que l'agent a retiré est-il revenu ?
 
-### Fichiers modifiés
-```
-src/lib/server/codebase-analysis.ts — +TrendDataPoint, +Insights, daily trends
-src/lib/server/providers/types.ts   — +aider, +copilot provider types
-src/lib/server/providers/index.ts   — Register new providers
-src/lib/stores/annotations.svelte.ts — SQLite API + migration
-src/routes/+page.svelte             — Insights hero + trend charts
-src/routes/sessions/[sessionId]/*   — HTML export + git commits
-src/components/SessionCard.svelte   — New provider badges
-src/components/SessionList.svelte   — New provider filters
-```
+### Scores
+- Retirer ou reléguer `difficultyScore` et `wastedCost`, qui reposent sur des pondérations arbitraires, au profit de la survie et des détecteurs bruts
+- Remplacer le « taux de succès par modèle » (sessions sans erreur d'outil) par la survie par modèle
+
+### Post-mortem
+- Comparaison de deux sessions sur la même tâche
+- Post-mortem hebdomadaire agrégé : patterns récurrents, fichiers qui reviennent, prompts qui coûtent
+
+### Providers
+- Cursor : extraire le texte des éditions quand il est présent dans la base, pour rendre la survie mesurable
+- Codex CLI
+
+### Non prioritaire
+- Dashboard équipe, annotations collaboratives, export Slack/GitHub

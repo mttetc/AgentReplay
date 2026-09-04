@@ -9,6 +9,7 @@
 	import ModelBenchmarks from '../components/ModelBenchmarks.svelte';
 	import PromptInsights from '../components/PromptInsights.svelte';
 	import OverheadPanel from '../components/OverheadPanel.svelte';
+	import SurvivalCard from '../components/SurvivalCard.svelte';
 
 	let { data } = $props();
 	let a = $derived(data.analysis);
@@ -263,6 +264,10 @@
 	<!-- TAB: Overview -->
 	{#if tab === 'overview'}
 		<InsightsHero analysis={a} />
+
+		{#if data.survival}
+			<SurvivalCard aggregate={data.survival} />
+		{/if}
 
 		{#if a.promptPatterns.length > 0}
 			<PromptInsights patterns={a.promptPatterns} />
